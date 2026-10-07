@@ -1,0 +1,27 @@
+# Never commit or upload secrets, personal data, or build output.
+node_modules/
+**/node_modules/
+
+# your data + the access token + sample statements
+server/data/
+mobile/.env
+mobile/.env*.local
+
+# signing keys and credentials
+keys/
+credentials.json
+*.keystore
+*.jks
+
+# build output
+release/
+mobile/dist/
+mobile/.expo/
+mobile/android/
+mobile/ios/
+
+*.log
+.DS_Store
+
+# Expo's project template made its own tiny repo here; kept (renamed) in case it is ever wanted
+mobile/.git-expo-template/

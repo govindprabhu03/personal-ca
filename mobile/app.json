@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Personal CA",
+    "slug": "personal-ca",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F6F2FF",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.govindprabhu.personalca",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Unlock Personal CA with Face ID"
+      }
+    },
+    "android": {
+      "package": "com.govindprabhu.personalca",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#F6F2FF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      "expo-font",
+      "expo-sqlite",
+      "expo-notifications",
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+    ]
+  }
+}
