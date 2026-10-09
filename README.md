@@ -32,6 +32,15 @@ A "judge, not a tracker": tags every spend **Need / Want / Waste**, learns from 
 6. **Mobile**: `src/api.ts` (typed client) → `src/ui.tsx` (small component kit) → five screens (`src/screens/`) → `App.tsx` (tabs + quick-add button + lock gate).
 7. **Verify in a browser**, then wire up demo data (`npm run demo`) so every screen has something to show.
 
+## Install it: Windows `.exe` + Android `.apk`
+
+**`release/PersonalCA.exe`** (95 MB, one file, nothing else to install). Double-click it: it starts the server, opens the full app in your browser at `http://localhost:8787`, and prints the address + access token your phone needs. Keep its window open while you use the app; close it to stop. Your data lives in `%APPDATA%\PersonalCA` (`ca.db` + `token.txt`); back that folder up. Options: `--local-only` (this PC only, no phone), `--no-browser`. First launch: Windows asks whether to let it talk on your network, so tick **Private and Public** and Allow, or your phone can't reach it. Windows SmartScreen will say "unknown publisher" (the file is unsigned; More info > Run anyway). Rebuild it any time with `npm run build:exe` in `server/`.
+
+**`release/PersonalCA.apk`** (built by Expo's cloud build from `mobile/`; profile `preview` in `mobile/eas.json`). On the phone: allow "install unknown apps" for your browser/file manager, open the APK, install. Then in the app go to **More > Connect to your PC** and enter the PC address (e.g. `192.168.0.150`) and the access token shown by `PersonalCA.exe` (or on its web page under More > Connect to your PC). Until you connect, the app works fully on its own, offline. Rebuild with `npx eas-cli build -p android --profile preview` in `mobile/`.
+Signing key: `mobile/keys/personalca.keystore` + `mobile/credentials.json` (both git-ignored). **Back them up**: without them you can't install an updated APK over the old one.
+
+**How the pieces fit:** the phone app and the browser app each hold their own database and sync with the one server (`PersonalCA.exe` or `npm run phone`). The API is on your Wi-Fi in plain HTTP (Android's "cleartext" is enabled for that), guarded by the token; it also refuses foreign `Host` headers (DNS-rebinding) and other websites' CORS requests. The web page is handed the token only when opened on the PC itself.
+
 ## Try it on a real phone
 
 See **`PHONE-TEST.md`** for the step-by-step checklist. Short version: `npm run phone` in `server/` (listens on your network, makes a private token, writes it to `mobile/.env`), then `npx expo start -c` in `mobile/` and scan the QR with Expo Go. A wrong or missing token never loses data: changes wait on the phone and the header shows 🔑 Token until it's fixed.
