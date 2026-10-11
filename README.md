@@ -34,12 +34,29 @@ A "judge, not a tracker": tags every spend **Need / Want / Waste**, learns from 
 
 ## Install it: Windows `.exe` + Android `.apk`
 
-**`release/PersonalCA.exe`** (95 MB, one file, nothing else to install). Double-click it: it starts the server, opens the full app in your browser at `http://localhost:8787`, and prints the address + access token your phone needs. Keep its window open while you use the app; close it to stop. Your data lives in `%APPDATA%\PersonalCA` (`ca.db` + `token.txt`); back that folder up. Options: `--local-only` (this PC only, no phone), `--no-browser`. First launch: Windows asks whether to let it talk on your network, so tick **Private and Public** and Allow, or your phone can't reach it. Windows SmartScreen will say "unknown publisher" (the file is unsigned; More info > Run anyway). Rebuild it any time with `npm run build:exe` in `server/`.
+**`release/PersonalCA.exe`** (95 MB, one file, nothing else to install). Double-click it: it starts the server, opens the full app in your browser at `http://localhost:8787`, and prints the address + access token your phone needs. Keep its window open while you use the app; close it to stop. Your data lives in `%APPDATA%\PersonalCA` (`ca.db`, `token.txt`, plus automatic `backups\` and `logs\`; see Production notes); back that folder up. Options: `--local-only` (this PC only, no phone), `--no-browser`. First launch: Windows asks whether to let it talk on your network, so tick **Private and Public** and Allow, or your phone can't reach it. Windows SmartScreen will say "unknown publisher" (the file is unsigned; More info > Run anyway). Rebuild it any time with `npm run build:exe` in `server/`.
 
 **`release/PersonalCA.apk`** (built by Expo's cloud build from `mobile/`; profile `preview` in `mobile/eas.json`). On the phone: allow "install unknown apps" for your browser/file manager, open the APK, install. Then in the app go to **More > Connect to your PC** and enter the PC address (e.g. `192.168.0.150`) and the access token shown by `PersonalCA.exe` (or on its web page under More > Connect to your PC). Until you connect, the app works fully on its own, offline. Rebuild with `npx eas-cli build -p android --profile preview` in `mobile/`.
 Signing key: `mobile/keys/personalca.keystore` + `mobile/credentials.json` (both git-ignored). **Back them up**: without them you can't install an updated APK over the old one.
 
 **How the pieces fit:** the phone app and the browser app each hold their own database and sync with the one server (`PersonalCA.exe` or `npm run phone`). The API is on your Wi-Fi in plain HTTP (Android's "cleartext" is enabled for that), guarded by the token; it also refuses foreign `Host` headers (DNS-rebinding) and other websites' CORS requests. The web page is handed the token only when opened on the PC itself.
+
+## Production notes
+
+**Before any release:** `npm run verify` in `server/` is the one gate: typecheck (server + app), all tests, then a scan of everything git tracks for garbled text and for leaked secrets (keystore passwords, access tokens). It must exit 0.
+
+**What `PersonalCA.exe` keeps in `%APPDATA%\PersonalCA`:** `ca.db` (your data), `token.txt`, `backups\` (one dated copy a day, newest 14 kept, taken at start-up and every 6 hours it stays open), `logs\` (one file a day, 14 kept; failures by route and status only, never amounts, bodies or tokens). The server also stamps `ca.db` with a data version: a newer file is refused with a clear message (never silently mangled), and an older one is copied aside (`ca.db.before-vN.bak`) before it is upgraded.
+**Restore from a daily backup:** close the exe, copy `backups\ca-DATE.db` over `ca.db`, delete `ca.db-wal` and `ca.db-shm` if present, start it again. (More > Backup/Restore in the app makes a separate passphrase-encrypted export.) The daily copies are plain SQLite, as protected as `ca.db` itself, i.e. by your Windows account.
+
+**Security posture:** every `/api` call needs the token (compared in constant time); 10 wrong tokens within a minute lock that address out for a minute (even for the right token); foreign `Host` headers and other sites' CORS are refused; responses carry `nosniff` / `X-Frame-Options: DENY` / `no-store`. The phone app encrypts its on-device copy (AES-256-GCM, key in the Android Keystore via SecureStore), has Android auto-backup switched off, and requests no storage permissions. A phone that gets 429 (locked out), 421 (unrecognised PC address) or 5xx keeps all its queued changes and retries; only a real 4xx verdict on one change (e.g. invalid input) moves it to "rejected".
+If the app crashes while drawing a screen it shows "Something went wrong / Try again" instead of closing; nothing is lost.
+
+**Known limits, on purpose:**
+- Phone-to-PC traffic is plain HTTP on your own Wi-Fi (the token travels in a header). Fine at home; don't expose port 8787 to the internet. For anything wider, put it behind a TLS reverse proxy or a VPN such as Tailscale and add the hostname to `CA_ALLOWED_HOSTS`.
+- The exe is unsigned (SmartScreen warns once). A code-signing certificate is the only fix; it costs money, so it isn't done.
+- The APK is a direct-install build (`preview` profile). Publishing to Google Play needs the `production` profile (an AAB), a Play developer account, and a privacy policy.
+- `npm audit` reports findings only inside Expo's build tooling (metro, `@expo/cli`, node-forge); none of that code ships in the APK or the exe, and npm's suggested "fix" is a downgrade to Expo 44. The server's runtime dependencies are clean.
+- Not yet exercised on real hardware: the expo-sqlite adapter, notifications, biometric unlock, Ask your CA with a live key, PDFs from real banks.
 
 ## Try it on a real phone
 
