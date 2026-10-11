@@ -2,7 +2,7 @@
   "expo": {
     "name": "Personal CA",
     "slug": "personal-ca",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.govindprabhu.personalca",
-      "versionCode": 2,
+      "versionCode": 3,
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
