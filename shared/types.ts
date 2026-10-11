@@ -9,6 +9,16 @@ export type DetectorId =
   | 'late_night' | 'sale' | 'spike' | 'pay_later' | 'small_leaks'
   | 'payday' | 'fee' | 'double_charge' | 'repeat_regret';
 
+/** Who the user is for tax purposes. Asked once after sign-in (and editable), it decides which income heads and ITR form the tax screens lead with. */
+export type TaxpayerType = 'salaried' | 'professional' | 'business' | 'investor' | 'pensioner' | 'other';
+export interface Profile {
+  taxpayer_types: TaxpayerType[];   // can be several: a salaried person with share trades is salaried + investor
+  residency: 'resident' | 'nri';
+  age_group: 'under60' | 'senior' | 'super_senior'; // 60-79 and 80+ get higher exemption limits in the old regime
+  regime_pref: 'auto' | 'new' | 'old';              // auto = compare both and show the cheaper
+  onboarded: boolean;               // has answered the questions
+}
+
 export interface Settings {
   savings_target_pct: number;
   need_target_pct: number;
@@ -81,6 +91,7 @@ export interface Bootstrap {
   streak: number;                   // consecutive days with a manually logged spend
 
   settings: Settings;
+  profile: Profile;
   accounts: Account[];
   categories: Category[];
   last: { category_id: number | null; account_id: number | null; payment_method: PaymentMethod }; // "remembers your last choices"

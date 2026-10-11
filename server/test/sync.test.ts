@@ -335,3 +335,40 @@ describe('server identity: a phone never overwrites its data from a different se
     expect(svc.listTxs(db, M, TODAY).map((t) => t.merchant_raw)).toEqual(['Intact']); // rolled back, nothing lost
   });
 });
+
+describe('signing in with an account (bearer tokens)', () => {
+  const reply = (status: number, text = '{}') => ({ status, ok: status < 300, headers: { get: () => 'application/json' }, text: async () => text });
+  const ok = (url: string) => reply(200, url.endsWith('/snapshot') ? JSON.stringify(svc.exportTables(phoneDb())) : JSON.stringify({ id: 'srv-1', empty: true })); // a healthy, empty server
+  const mk = (handler: (headers: Record<string, string>, url: string) => ReturnType<typeof reply>, getToken: (refresh?: boolean) => Promise<string | null>) => {
+    const seen: Array<Record<string, string>> = [];
+    const fetch = (async (url: string, init: { headers: Record<string, string> }) => { seen.push(init.headers); return handler(init.headers, url); }) as never;
+    const s = createSync({ base: 'https://api.example.test', token: 'ignored-shared-token', getToken, kv: memoryKv(), fetch, uuid: () => 'op-1-xxxxxxxx', now: () => `${TODAY}T09:00:00`, db: phoneDb() });
+    return { s, seen };
+  };
+
+  it('sends the sign-in token as a bearer, never the shared access token', async () => {
+    const { s, seen } = mk((_h, url) => ok(url), async () => 'T-current');
+    await s.init(); await s.ping();
+    expect(seen.length).toBeGreaterThan(0);
+    for (const h of seen) { expect(h.authorization).toBe('Bearer T-current'); expect(h['x-api-key']).toBeUndefined(); }
+  });
+
+  it('on a 401 it asks for a fresh token once and retries, so an expired sign-in heals itself', async () => {
+    const asked: Array<boolean | undefined> = [];
+    const { s } = mk((h, url) => (h.authorization === 'Bearer T-fresh' ? ok(url) : reply(401, '{"error":"unauthorised"}')),
+      async (refresh) => { asked.push(refresh); return refresh ? 'T-fresh' : 'T-expired'; });
+    await s.init(); await s.ping();
+    expect(asked).toContain(true);
+    expect(s.getSnapshot()).toMatchObject({ authFailed: false, online: true });
+  });
+
+  it('if the refresh fails too, it says "sign in again" and keeps every queued change', async () => {
+    const { s } = mk(() => reply(401, '{"error":"unauthorised"}'), async () => 'T-bad');
+    await s.init();
+    await s.run('addTx', tx('Queued Offline', 100, `${M}-08T10:00:00`));
+    await s.flush();
+    expect(s.getSnapshot()).toMatchObject({ authFailed: true, rejected: [] });
+    expect(s.getSnapshot().pending).toHaveLength(1);
+    await expect(s.remote('backup', { passphrase: 'abcdef' })).rejects.toMatchObject({ code: 'auth', message: expect.stringContaining('sign in again') });
+  });
+});

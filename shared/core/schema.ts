@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS settings (
   savings_target_pct REAL NOT NULL DEFAULT 20, need_target_pct REAL NOT NULL DEFAULT 50, want_target_pct REAL NOT NULL DEFAULT 30,
   fixed_needs_paise INTEGER NOT NULL DEFAULT 0, income_irregular INTEGER NOT NULL DEFAULT 0,
   emergency_saved_paise INTEGER NOT NULL DEFAULT 0, emergency_horizon_months INTEGER NOT NULL DEFAULT 12);
+-- Who the user is for tax purposes (one row): asked once after sign-in, editable later.
+CREATE TABLE IF NOT EXISTS profile (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  taxpayer_types TEXT NOT NULL DEFAULT '[]',
+  residency TEXT NOT NULL DEFAULT 'resident' CHECK (residency IN ('resident','nri')),
+  age_group TEXT NOT NULL DEFAULT 'under60' CHECK (age_group IN ('under60','senior','super_senior')),
+  regime_pref TEXT NOT NULL DEFAULT 'auto' CHECK (regime_pref IN ('auto','new','old')),
+  onboarded INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('bank','cash','card','wallet')),
   name TEXT NOT NULL, opening_paise INTEGER NOT NULL DEFAULT 0);
@@ -61,6 +69,7 @@ CREATE TABLE IF NOT EXISTS sync_ops (
 
 export function seed(db: DB) {
   db.exec('INSERT OR IGNORE INTO settings (id) VALUES (1)');
+  db.exec('INSERT OR IGNORE INTO profile (id) VALUES (1)');
   const cat = db.prepare('INSERT OR IGNORE INTO categories (name, default_bucket, is_fixed) VALUES (?, ?, ?)');
   for (const c of SEED_CATEGORIES) cat.run(c.name, c.bucket, c.fixed);
   const n = db.prepare('SELECT COUNT(*) AS n FROM accounts').get() as unknown as { n: number };
@@ -77,7 +86,7 @@ export function initSchema(db: DB) {
 
 /** "Delete all my data": one tap, everything gone, defaults re-seeded. */
 export function wipe(db: DB) {
-  db.exec('DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM transactions; DELETE FROM income; DELETE FROM merchant_rules; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM settings;');
+  db.exec('DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM transactions; DELETE FROM income; DELETE FROM merchant_rules; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM settings; DELETE FROM profile;');
   seed(db);
 }
 

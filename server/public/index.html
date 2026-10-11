@@ -1,3 +1,28 @@
-<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personal CA server</title>
-<body style="font-family:system-ui;max-width:32rem;margin:15vh auto;padding:0 1rem;color:#2b2160"><h1>Personal CA</h1>
-<p>This is the sync server for the Personal CA app. There is nothing to see here: open the app on your phone and connect it to this address.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personal CA</title>
+<style>body{font-family:system-ui,sans-serif;max-width:30rem;margin:12vh auto;padding:0 1.2rem;color:#2b2160;line-height:1.5}h1{margin:.2em 0}
+input,button{font:inherit;padding:.7em .9em;border-radius:12px;border:2px solid #d9d2ff;width:100%;box-sizing:border-box;margin:.35em 0}
+button{background:#7b5cff;color:#fff;border-color:#7b5cff;font-weight:700;cursor:pointer}.ok{color:#0a9e7b;font-weight:700}.bad{color:#c21b52;font-weight:700}</style></head>
+<body><h1>💜 Personal CA</h1>
+<div id="home"><p>This is the sync server for the Personal CA app. There is nothing to see here: open the app on your phone.</p>
+<p id="confirmed" hidden class="ok">✅ If you just confirmed your email: it worked. Go back to the Personal CA app and sign in.</p></div>
+<form id="reset" hidden><p><b>Choose a new password</b></p><input id="pw" type="password" minlength="8" placeholder="new password (at least 8 characters)" autocomplete="new-password" required>
+<button>Save new password</button><p id="msg"></p></form>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script>
+// Email links land here. A reset link carries a short-lived token in the address (#...); the form below uses it once to set a new password.
+// (The URL and key below are public by design: they only identify the sign-in project.)
+var URL_ = 'https://xjadceycmfimtftqnmja.supabase.co', KEY = 'sb_publishable__wKMwMfgg3cG7ZrtrWS3vA_kLTiUA1o';
+var h = new URLSearchParams(location.hash.replace(/^#/, '')), q = new URLSearchParams(location.search);
+if (h.get('type') === 'recovery' && h.get('access_token')) {
+  document.getElementById('home').hidden = true; document.getElementById('reset').hidden = false;
+  document.getElementById('reset').addEventListener('submit', async function (e) {
+    e.preventDefault(); var msg = document.getElementById('msg'); msg.className = ''; msg.textContent = 'Saving…';
+    try {
+      var c = supabase.createClient(URL_, KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+      var s = await c.auth.setSession({ access_token: h.get('access_token'), refresh_token: h.get('refresh_token') || '' }); if (s.error) throw s.error;
+      var r = await c.auth.updateUser({ password: document.getElementById('pw').value }); if (r.error) throw r.error;
+      msg.className = 'ok'; msg.textContent = '✅ Password changed. Go back to the app and sign in.'; document.getElementById('pw').hidden = true;
+    } catch (err) { msg.className = 'bad'; msg.textContent = 'That did not work: ' + (err.message || err) + ' (reset links expire; ask for a new one in the app).'; }
+  });
+} else if (h.get('type') === 'signup' || q.get('code') || h.get('access_token')) { document.getElementById('confirmed').hidden = false; }
+</script></body></html>

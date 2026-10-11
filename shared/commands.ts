@@ -5,7 +5,7 @@
 import type { DB } from './core/schema';
 import * as svc from './core/service';
 import { formatRupees } from './money';
-import type { Bucket, PaymentMethod, Settings } from './types';
+import type { Bucket, PaymentMethod, Profile, Settings } from './types';
 
 export interface Command<A = any> {
   label(a: A): string;
@@ -38,6 +38,7 @@ export const COMMANDS = {
     label: (a) => `Income · ${formatRupees(a.amount_paise)}`, http: (a) => ({ method: 'POST', path: '/income', body: a }), local: (db, a) => svc.addIncome(db, a),
   }),
   deleteIncome: c<{ id: number }>({ label: () => 'Delete income', http: (a) => ({ method: 'DELETE', path: `/income/${a.id}` }), local: (db, a) => svc.deleteIncome(db, a.id) }),
+  saveProfile: c<Partial<Profile>>({ label: () => 'Tax profile', http: (a) => ({ method: 'PUT', path: '/profile', body: a }), local: (db, a) => svc.updateProfile(db, a) }),
   updateSettings: c<Partial<Settings>>({ label: () => 'Targets', http: (a) => ({ method: 'PUT', path: '/settings', body: a }), local: (db, a) => svc.updateSettings(db, a) }),
   addAccount: c<{ kind: string; name: string; opening_paise: number }>({
     label: (a) => `Account · ${a.name}`, http: (a) => ({ method: 'POST', path: '/accounts', body: a }), local: (db, a) => svc.addAccount(db, a.kind, a.name, a.opening_paise),

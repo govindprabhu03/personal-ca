@@ -3,7 +3,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, describe, expect, it } from 'vitest';
-import { createCloudHandler } from '../src/cloud/handler';
+import { createCloudHandler, singleOwner } from '../src/cloud/handler';
 import { memoryStore } from '../src/cloud/store';
 
 const TOKEN = 'cloud-token-abcdefghijklmnop', KEY = 'cloud-data-key-abcdefghijklmnop';
@@ -11,7 +11,7 @@ const servers: http.Server[] = [];
 
 /** One "function instance": its own handler (its own cache), sharing the store with the others, like separate warm containers would. */
 async function instance(store: ReturnType<typeof memoryStore>, key = KEY) {
-  const s = http.createServer(createCloudHandler({ store, dataKey: key, token: TOKEN, today: () => '2026-03-10' })).listen(0);
+  const s = http.createServer(createCloudHandler({ ...singleOwner({ store, dataKey: key, token: TOKEN }), today: () => '2026-03-10' })).listen(0);
   servers.push(s);
   await new Promise((r) => s.once('listening', r));
   const base = `http://127.0.0.1:${(s.address() as AddressInfo).port}`;

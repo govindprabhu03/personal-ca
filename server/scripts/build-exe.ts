@@ -23,7 +23,7 @@ async function main() {
   // The web bundle is PUBLIC to everyone on your network, so no secret may ever be baked into it. Clear the token and the server address.
   execSync('npx expo export --platform web --output-dir dist', {
     cwd: path.join(root, 'mobile'), stdio: 'inherit',
-    env: { ...process.env, CI: '1', EXPO_PUBLIC_API_TOKEN: '', EXPO_PUBLIC_API_URL: undefined as unknown as string },
+    env: { ...process.env, CI: '1', EXPO_PUBLIC_API_TOKEN: '', EXPO_PUBLIC_API_URL: undefined as unknown as string, EXPO_PUBLIC_ACCOUNTS: '0' }, // (the PC program's web page uses the PC's own token, never accounts)
   });
   const dist = path.join(root, 'mobile', 'dist');
   if (!existsSync(path.join(dist, 'index.html'))) throw new Error('The web export produced no index.html');

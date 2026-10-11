@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { DB } from './db';
 import { monthOf, todayStr } from './engine/dates';
 import { askCa, LlmClient } from './ask/agent';
+import { createLockout } from './lockout';
 import { Logger, quietLogger } from './log';
 import * as svc from './service';
 import { AssetSource, mountWeb } from './web';
@@ -71,16 +72,13 @@ export function createApp(db: DB, opts: { token?: string; today?: () => string; 
     // Wrong tokens: compared in constant time, and 10 misses within a minute shut that address out for a minute (a guessing attack
     // is hopeless against a 144-bit token anyway; this mostly stops a misconfigured device from spamming the log).
     const want = createHash('sha256').update(opts.token).digest();
-    const misses = new Map<string, { n: number; since: number; until: number }>();
+    const lockout = createLockout();
     app.use('/api', (q, r, n) => {
-      const ip = q.ip ?? '?', now = Date.now(), m = misses.get(ip);
-      if (m && m.until > now) return void r.status(429).set('Retry-After', String(Math.ceil((m.until - now) / 1000))).json({ error: 'Too many wrong access tokens. Wait a minute and try again.' });
+      const ip = q.ip ?? '?', wait = lockout.retryAfter(ip);
+      if (wait) return void r.status(429).set('Retry-After', String(wait)).json({ error: 'Too many wrong access tokens. Wait a minute and try again.' });
       const got = createHash('sha256').update(q.header('x-api-key') ?? '').digest();
-      if (timingSafeEqual(got, want)) { misses.delete(ip); return n(); }
-      const e = m && now - m.since < 60_000 ? m : { n: 0, since: now, until: 0 };
-      if (++e.n >= 10) { e.until = now + 60_000; log.warn(`locked out ${ip} for 60s after ${e.n} wrong tokens`); }
-      misses.set(ip, e);
-      if (misses.size > 500) for (const [k, v] of misses) if (v.until < now && now - v.since > 60_000) misses.delete(k);
+      if (timingSafeEqual(got, want)) { lockout.ok(ip); return n(); }
+      if (lockout.fail(ip)) log.warn(`locked out ${ip} for 60s after repeated wrong tokens`);
       r.status(401).json({ error: 'unauthorised' });
     });
   }
@@ -124,6 +122,11 @@ export function createApp(db: DB, opts: { token?: string; today?: () => string; 
   app.get('/api/suggest', (q, r) => {
     const h = q.query.hour === undefined ? undefined : Number(q.query.hour);
     r.json(svc.suggest(db, String(q.query.text ?? ''), h));
+  });
+  app.put('/api/profile', (q, r) => {
+    const b = z.object({ taxpayer_types: z.array(z.enum(['salaried', 'professional', 'business', 'investor', 'pensioner', 'other'])).max(6), residency: z.enum(['resident', 'nri']),
+      age_group: z.enum(['under60', 'senior', 'super_senior']), regime_pref: z.enum(['auto', 'new', 'old']), onboarded: z.boolean() }).partial().parse(q.body);
+    r.json(svc.updateProfile(db, b));
   });
   app.put('/api/settings', (q, r) => { r.json(svc.updateSettings(db, settings.parse(q.body))); });
 

@@ -29,7 +29,8 @@ class NetworkError extends Error {}
 
 type FetchFn = (url: string, init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal }) =>
   Promise<{ status: number; ok: boolean; headers: { get(name: string): string | null }; text(): Promise<string> }>;
-export interface SyncConfig { base: string; token?: string; kv: KV; fetch: FetchFn; uuid: () => string; now: () => string; db: DB; timeoutMs?: number }
+/** `getToken`: when set, the app signs in with an account: every request carries "Authorization: Bearer <that token>" instead of the shared access token. `refresh` asks for a new token (called once if the server answers 401). */
+export interface SyncConfig { base: string; token?: string; getToken?: (refresh?: boolean) => Promise<string | null>; kv: KV; fetch: FetchFn; uuid: () => string; now: () => string; db: DB; timeoutMs?: number }
 
 export function createSync(cfg: SyncConfig) {
   const db = cfg.db, timeoutMs = cfg.timeoutMs ?? 8000;
@@ -61,11 +62,13 @@ export function createSync(cfg: SyncConfig) {
     const timer = setTimeout(() => ctl.abort(), timeoutMs);
     try {
       if (!base) throw new Error('no server address set yet'); // becomes a NetworkError below: the app simply works offline
-      const res = await cfg.fetch(`${base}/api${path}`, {
+      const send = (bearer: string | null) => cfg.fetch(`${base}/api${path}`, {
         method, signal: ctl.signal,
-        headers: { 'content-type': 'application/json', ...(token ? { 'x-api-key': token } : {}), ...(key ? { 'Idempotency-Key': key } : {}) },
+        headers: { 'content-type': 'application/json', ...(cfg.getToken ? (bearer ? { authorization: `Bearer ${bearer}` } : {}) : token ? { 'x-api-key': token } : {}), ...(key ? { 'Idempotency-Key': key } : {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
+      let res = await send(cfg.getToken ? await cfg.getToken(false).catch(() => null) : null);
+      if (res.status === 401 && cfg.getToken) { const fresh = await cfg.getToken(true).catch(() => null); if (fresh) res = await send(fresh); } // the sign-in may simply have expired
       return { status: res.status, ok: res.ok, json: (res.headers.get('content-type') ?? '').includes('json'), text: await res.text() };
     } catch { throw new NetworkError(); } finally { clearTimeout(timer); }
   }
@@ -73,6 +76,7 @@ export function createSync(cfg: SyncConfig) {
   const fail = (r: { status: number; text: string }): ApiError => {
     let e: any = {};
     try { e = JSON.parse(r.text); } catch { /* not JSON */ }
+    if (isAuth(r.status) && cfg.getToken) return new ApiError(r.status, 'Your sign-in has expired or was refused. Please sign in again; nothing on this phone was lost.', 'auth');
     if (isAuth(r.status)) return new ApiError(r.status, "The server didn't accept this app's access token. Check that EXPO_PUBLIC_API_TOKEN matches the server's CA_API_TOKEN, then restart Expo.", 'auth');
     if (r.status === 421) return new ApiError(421, "The server doesn't recognise this address. Use one of the addresses shown in the Personal CA window on your PC.", 'host');
     return new ApiError(r.status, e.details?.join(', ') ?? e.error ?? `HTTP ${r.status}`, e.code);

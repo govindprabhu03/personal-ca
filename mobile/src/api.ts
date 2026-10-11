@@ -5,7 +5,7 @@ import * as svc from '../../shared/core/service';
 import type { DB } from '../../shared/core/schema';
 import { isLocalId } from '../../shared/core/localdb';
 import { nowLocal, todayLocal } from '../../shared/time';
-import type { Bill, Bootstrap, Bucket, Flag, Goal, ImportResult, IncomeEntry, IouSummary, MonthlyReport, PaymentMethod, SafeToSpend, SavingsPlan, Settings, Subscription, Suggestion, Tx, Wishlist, Account } from '../../shared/types';
+import type { Bill, Bootstrap, Bucket, Flag, Goal, ImportResult, IncomeEntry, IouSummary, MonthlyReport, PaymentMethod, Profile, SafeToSpend, SavingsPlan, Settings, Subscription, Suggestion, Tx, Wishlist, Account } from '../../shared/types';
 import { getSync } from './offline';
 
 const read = <T>(f: (db: DB) => T): Promise<T> => Promise.resolve().then(() => f(getSync().db));
@@ -24,6 +24,7 @@ export const api = {
   bootstrap: (): Promise<Bootstrap> => read((db) => svc.bootstrap(db, todayLocal())),
   suggest: (text: string, hour: number): Promise<Suggestion> => read((db) => svc.suggest(db, text, hour)),
   updateSettings: (p: Partial<Settings>) => run<Settings>('updateSettings', p),
+  saveProfile: (p: Partial<Profile>) => run<Profile>('saveProfile', p),
   addAccount: (kind: string, name: string, opening_paise: number) => run<Account[]>('addAccount', { kind, name, opening_paise }),
   addIncome: (b: { amount_paise: number; source?: string; is_regular?: boolean; account_id?: number }) => run<IncomeEntry>('addIncome', { ...b, received_at: nowLocal() }),
   income: (month: string): Promise<IncomeEntry[]> => read((db) => svc.listIncome(db, month)),

@@ -18,6 +18,8 @@ const secrets: string[] = [];
 const take = (v: unknown) => { if (typeof v === 'string' && v.length >= 8) secrets.push(v); };
 const credFile = path.join(root, 'mobile', 'credentials.json');
 if (existsSync(credFile)) { try { const k = JSON.parse(readFileSync(credFile, 'utf8')).android?.keystore ?? {}; take(k.keystorePassword); take(k.keyPassword); } catch { /* unreadable: nothing to guard */ } }
+const cloudFile = path.join(root, 'mobile', 'keys', 'cloud-secrets.txt'); // the hosted server's token and data key
+if (existsSync(cloudFile)) for (const l of readFileSync(cloudFile, 'utf8').split(/\r?\n/)) { const m = l.match(/^[A-Z_]+=(.+)$/); if (m) take(m[1].trim()); }
 for (const f of [path.join(root, 'server', 'data', '.phone-token'), path.join(process.env.APPDATA ?? '', 'PersonalCA', 'token.txt')]) {
   if (f && existsSync(f)) take(readFileSync(f, 'utf8').trim());
 }

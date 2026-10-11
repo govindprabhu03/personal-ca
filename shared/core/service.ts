@@ -1,7 +1,7 @@
 // The service layer: reads the DB, hands plain arrays to the engine (pure functions), returns API-shaped results.
 import type {
   Account, Bill, Bootstrap, Bucket, Category, Flag, Goal, IouEntry, IouPerson, IouSummary, ImportResult, ImportRow, IncomeEntry, MonthlyReport,
-  PaymentMethod, SafeToSpend, SavingsPlan, Settings, Subscription, Suggestion, Tx, WishItem, Wishlist,
+  PaymentMethod, Profile, SafeToSpend, SavingsPlan, Settings, Subscription, Suggestion, TaxpayerType, Tx, WishItem, Wishlist,
 } from '../types';
 import { DB, wipe } from './schema';
 import { isLocalId, LOCAL_ID_BASE } from './localdb';
@@ -30,6 +30,24 @@ export function updateSettings(db: DB, patch: Partial<Settings>) {
   if (keys.length) run(db, `UPDATE settings SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = 1`, ...keys.map((k) => patch[k] as number));
   return getSettings(db);
 }
+const TAXPAYER = ['salaried', 'professional', 'business', 'investor', 'pensioner', 'other'] as const;
+type ProfileRow = { taxpayer_types: string; residency: Profile['residency']; age_group: Profile['age_group']; regime_pref: Profile['regime_pref']; onboarded: number };
+const toProfile = (r: ProfileRow): Profile => ({ taxpayer_types: (JSON.parse(r.taxpayer_types) as TaxpayerType[]), residency: r.residency, age_group: r.age_group, regime_pref: r.regime_pref, onboarded: r.onboarded === 1 });
+export const getProfile = (db: DB): Profile => toProfile(get<ProfileRow>(db, 'SELECT * FROM profile WHERE id = 1')!);
+export function updateProfile(db: DB, patch: Partial<Profile>) {
+  const sets: string[] = [], vals: Array<string | number> = [];
+  const take = (col: string, v: string | number) => { sets.push(`${col} = ?`); vals.push(v); };
+  if (patch.taxpayer_types !== undefined) {
+    if (!Array.isArray(patch.taxpayer_types) || patch.taxpayer_types.some((t) => !(TAXPAYER as readonly string[]).includes(t))) throw new HttpError(400, 'Unknown taxpayer type.');
+    take('taxpayer_types', JSON.stringify([...new Set(patch.taxpayer_types)]));
+  }
+  if (patch.residency !== undefined) { if (!['resident', 'nri'].includes(patch.residency)) throw new HttpError(400, 'Unknown residency.'); take('residency', patch.residency); }
+  if (patch.age_group !== undefined) { if (!['under60', 'senior', 'super_senior'].includes(patch.age_group)) throw new HttpError(400, 'Unknown age group.'); take('age_group', patch.age_group); }
+  if (patch.regime_pref !== undefined) { if (!['auto', 'new', 'old'].includes(patch.regime_pref)) throw new HttpError(400, 'Unknown regime.'); take('regime_pref', patch.regime_pref); }
+  if (patch.onboarded !== undefined) take('onboarded', patch.onboarded ? 1 : 0);
+  if (sets.length) run(db, `UPDATE profile SET ${sets.join(', ')} WHERE id = 1`, ...vals);
+  return getProfile(db);
+}
 export const listCategories = (db: DB) => all<Category>(db, 'SELECT * FROM categories ORDER BY id');
 export const listAccounts = (db: DB) => all<Account>(db, `
   SELECT a.*, a.opening_paise
@@ -52,7 +70,7 @@ export function bootstrap(db: DB, today = todayStr()): Bootstrap {
   const last = get<{ category_id: number | null; account_id: number; payment_method: PaymentMethod }>(
     db, 'SELECT category_id, account_id, payment_method FROM transactions ORDER BY id DESC LIMIT 1');
   return {
-    today, streak: streakFor(db, today), settings: getSettings(db), accounts: listAccounts(db), categories: listCategories(db),
+    today, streak: streakFor(db, today), settings: getSettings(db), profile: getProfile(db), accounts: listAccounts(db), categories: listCategories(db),
     last: { category_id: last?.category_id ?? null, account_id: last?.account_id ?? null, payment_method: last?.payment_method ?? 'upi' },
   };
 }
@@ -237,7 +255,7 @@ export function exportCsv(db: DB): string {
 const TABLES = ['accounts', 'categories', 'income', 'transactions', 'merchant_rules', 'goals', 'wishlist', 'bills', 'iou_entries'] as const;
 export type Snapshot = Record<string, any> & { settings: Settings };
 export function exportTables(db: DB): Snapshot {
-  const data: Record<string, unknown> = { version: 1, exported_at: nowStr(), settings: getSettings(db) };
+  const data: Record<string, unknown> = { version: 1, exported_at: nowStr(), settings: getSettings(db), profile: getProfile(db) };
   for (const t of TABLES) data[t] = all(db, `SELECT * FROM ${t}`);
   return data as Snapshot;
 }
@@ -252,6 +270,7 @@ export function importTables(db: DB, d: Snapshot) {
       run(db, `INSERT INTO ${t} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`, ...cols.map((c) => row[c] as string | number | null));
     }
     updateSettings(db, d.settings);
+    if (d.profile) updateProfile(db, d.profile as Partial<Profile>); // (older backups have none)
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }

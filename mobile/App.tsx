@@ -6,9 +6,12 @@ import { AppState, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import type { Bootstrap } from '../shared/types';
 import { api } from './src/api';
+import { ACCOUNT_MODE } from './src/config';
 import { LockGate } from './src/lock';
 import { getSync, ready, useSyncState } from './src/offline';
 import { AddSheet } from './src/screens/AddSheet';
+import { AuthGate } from './src/screens/Auth';
+import { Onboarding } from './src/screens/Onboarding';
 import { AskSheet } from './src/screens/AskSheet';
 import { More } from './src/screens/More';
 import { Report } from './src/screens/Report';
@@ -46,6 +49,8 @@ function Main() {
   const [adding, setAdding] = useState(false);
   const [asking, setAsking] = useState(false);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+  const [waited, setWaited] = useState(false); // don't wait forever for the account's data before asking the first-run questions
+  useEffect(() => { const t = setTimeout(() => setWaited(true), 8000); return () => clearTimeout(t); }, []);
 
   // ---- on-device database + sync lifecycle ----
   const sync = getSync();
@@ -78,6 +83,12 @@ function Main() {
       </View>
     );
 
+  // First time on this account: ask who you are. We wait until the account's data has arrived (or we're offline / can't sync), so a returning
+  // person on a new phone is not asked again.
+  if (!(snap.lastSync !== null || !snap.online || snap.authFailed || snap.serverChanged || waited))
+    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}><T size={56}>💜</T><Muted>Setting up your account…</Muted></View>;
+  if (!data.profile.onboarded) return <Onboarding initial={data.profile} onDone={bump} />;
+
   const cur = TABS.find((t) => t.id === tab)!;
   const Active = cur.View;
   const left = TABS.slice(0, 2), right = TABS.slice(2, 4);
@@ -92,7 +103,7 @@ function Main() {
           {(!snap.online || snap.authFailed || snap.serverChanged || snap.syncing || snap.pending.length > 0 || snap.rejected.length > 0) && (
             <Pressable onPress={() => setTab('more')} style={{ height: 40, borderRadius: 20, paddingHorizontal: 12, marginRight: 8, justifyContent: 'center', backgroundColor: snap.authFailed || snap.serverChanged || snap.rejected.length ? C.pinkSoft : !snap.online ? C.skySoft : C.sunSoft }}>
               <Text style={{ fontSize: 13, fontFamily: F.bold, color: snap.authFailed || snap.serverChanged || snap.rejected.length ? '#C21B52' : !snap.online ? '#1B6FA8' : '#8A5A00' }}>
-                {snap.serverChanged ? '🔀 New server' : snap.authFailed ? '🔑 Token' : !snap.online ? `📴 Offline${snap.pending.length ? ` · ${snap.pending.length}` : ''}` : snap.syncing ? '🔄 Syncing' : snap.pending.length ? `⏳ ${snap.pending.length}` : `⚠️ ${snap.rejected.length}`}
+                {snap.serverChanged ? '🔀 New server' : snap.authFailed ? (ACCOUNT_MODE ? '🔑 Sign in' : '🔑 Token') : !snap.online ? `📴 Offline${snap.pending.length ? ` · ${snap.pending.length}` : ''}` : snap.syncing ? '🔄 Syncing' : snap.pending.length ? `⏳ ${snap.pending.length}` : `⚠️ ${snap.rejected.length}`}
               </Text>
             </Pressable>
           )}
@@ -153,7 +164,7 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-        {!fontsReady ? null : db === 'ready' ? <LockGate><Boundary><Main /></Boundary></LockGate> : (
+        {!fontsReady ? null : db === 'ready' ? <LockGate><AuthGate><Boundary><Main /></Boundary></AuthGate></LockGate> : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12 }}>
             <T size={56}>💜</T>
             <T size={28} w="black">Personal CA</T>

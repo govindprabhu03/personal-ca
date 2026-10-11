@@ -1,22 +1,28 @@
 // Your data, your control: statement import (CSV or PDF), CSV export, encrypted backup/restore, app lock, delete-everything.
 import React, { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Modal, Platform, View } from 'react-native';
 import { CATEGORY_EMOJI } from '../../../shared/labels';
 import { formatRupees } from '../../../shared/money';
 import type { ImportResult } from '../../../shared/types';
 import { api } from '../api';
+import { signOut, useAuth } from '../auth';
+import { ACCOUNT_MODE } from '../config';
 import { useLock } from '../lock';
 import { getSync, useSyncState } from '../offline';
 import { normaliseUrl, saveServer } from '../server';
 import { confirmAsk, pickStatement, pickText, saveText, StatementSource } from '../platform';
 import type { ScreenProps } from '../state';
 import { bucketOf, C } from '../theme';
+import { signOutAndWipe } from './Auth';
+import { Onboarding, typeLabel } from './Onboarding';
 import { Btn, Bubble, BucketTag, Card, Chip, Chips, ErrorText, Field, Muted, Row, Screen, T, Title } from '../ui';
 
 const payload = (s: StatementSource, password: string) => (s.kind === 'csv' ? { csv: s.text } : { pdf_base64: s.base64, password: password || undefined });
 
-export function More({ bump }: ScreenProps) {
+export function More({ data, bump }: ScreenProps) {
   const lock = useLock();
+  const auth = useAuth();
+  const [editing, setEditing] = useState(false);
   const sy = useSyncState();
   const [srvUrl, setSrvUrl] = useState(''); const [srvToken, setSrvToken] = useState(''); const [srvMsg, setSrvMsg] = useState('');
   const [pair, setPair] = useState<{ urls: string[]; token: string | null } | null>(null);
@@ -66,6 +72,39 @@ export function More({ bump }: ScreenProps) {
       <ErrorText error={err} />
       {!!msg && <View style={{ backgroundColor: C.mintSoft, borderRadius: 16, padding: 12 }}><T w="bold" color="#0A9E7B">✅ {msg}</T></View>}
 
+      {ACCOUNT_MODE && (
+        <>
+          <Title emoji="👤">Your account</Title>
+          <Card>
+            <Row>
+              <Bubble emoji="🙂" size={42} />
+              <View style={{ flex: 1 }}>
+                <T w="black">{auth.status === 'in' ? auth.email || 'Signed in' : '…'}</T>
+                <Muted size={12}>Your data is stored encrypted and is only reachable when you're signed in.</Muted>
+              </View>
+            </Row>
+            <Btn kind="ghost" label="Sign out" onPress={() => run(async () => {
+              const n = sy.pending.length;
+              const ok = await confirmAsk('Sign out?', n ? `${n} change${n > 1 ? 's' : ''} haven't synced yet and will be lost if you sign out now. Sign out anyway?` : 'Your data stays safe in your account. Sign in again any time to bring it back.');
+              if (ok) await signOutAndWipe();
+            })} />
+          </Card>
+        </>
+      )}
+
+      <Title emoji="🧾">Your tax profile</Title>
+      <Card>
+        <T w="bold">{data.profile.taxpayer_types.length ? data.profile.taxpayer_types.map(typeLabel).join('  ·  ') : 'Not set yet'}</T>
+        <Muted size={12}>{({ under60: 'Under 60', senior: '60 to 79', super_senior: '80 and above' } as const)[data.profile.age_group]} · {data.profile.residency === 'nri' ? 'NRI' : 'Resident'} · {({ auto: 'compare both regimes', new: 'new regime', old: 'old regime' } as const)[data.profile.regime_pref]}</Muted>
+        <Btn kind="soft" label="Change" onPress={() => setEditing(true)} />
+      </Card>
+      <Modal visible={editing} animationType="slide" onRequestClose={() => setEditing(false)}>
+        <View style={{ flex: 1, backgroundColor: C.bg }}>
+          <Onboarding initial={data.profile} onDone={() => { setEditing(false); bump(); }} onClose={() => setEditing(false)} />
+        </View>
+      </Modal>
+
+      {!ACCOUNT_MODE && (<>
       <Title emoji="🔌">Connect to your server</Title>
       <Card>
         <Muted>Your data lives on this device and syncs with your Personal CA server: the program on your PC, or one you have put online. Enter its address and access token once. A PC address looks like 192.168.0.150; an online one starts with https://</Muted>
@@ -86,6 +125,7 @@ export function More({ bump }: ScreenProps) {
           </View>
         )}
       </Card>
+      </>)}
 
       <Title emoji="📴">Offline & sync</Title>
       <Card>
@@ -98,7 +138,14 @@ export function More({ bump }: ScreenProps) {
           <Btn kind="soft" label="Sync now" onPress={() => run(async () => { getSync().requestPull(); await getSync().ping(); bump(); })} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
         </Row>
         <Muted size={12}>Your whole app runs on a database on this phone (encrypted), so everything works with no signal: every screen and every number. Changes are sent to the server when you're online, and your phone refreshes from it afterwards. Only imports, backups, restore, erase and Ask your CA need a connection.</Muted>
-        {sy.authFailed && (
+        {sy.authFailed && ACCOUNT_MODE && (
+          <View style={{ backgroundColor: C.pinkSoft, borderRadius: 14, padding: 10, gap: 6 }}>
+            <T size={13} w="black" color="#C21B52">🔑 Please sign in again</T>
+            <T size={12} color="#C21B52">Your sign-in expired or was refused. Nothing is lost: your changes are safe on this phone and will send once you're signed in.</T>
+            <Btn kind="soft" label="Sign in again" onPress={() => run(async () => { await signOut(); })} style={{ paddingVertical: 8 }} />
+          </View>
+        )}
+        {sy.authFailed && !ACCOUNT_MODE && (
           <View style={{ backgroundColor: C.pinkSoft, borderRadius: 14, padding: 10, gap: 4 }}>
             <T size={13} w="black" color="#C21B52">🔑 The server doesn't accept this app's access token</T>
             <T size={12} color="#C21B52">Nothing is lost: your changes are safe on this phone and will send once it's fixed. Fix it in "Connect to your server" above: the token must match the one shown by the Personal CA program on your PC.</T>
