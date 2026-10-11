@@ -1,5 +1,6 @@
 // Pre-release hygiene scan over everything git tracks:
-//   1. garbled text (UTF-8 that was re-read as Windows-1252: Ã©, â€”, â‚¹, ðŸ…), which a PowerShell rewrite can cause
+//   1. garbled text: UTF-8 re-read as Windows-1252, so an accented letter, the rupee sign or an emoji shows up as two or three odd
+//      characters. A PowerShell rewrite of a file can cause it.
 //   2. secrets: the keystore passwords and any access token on this machine must never appear in tracked files
 // Exit code 1 on any finding. Run via `npm run verify`.
 import { execFileSync } from 'node:child_process';

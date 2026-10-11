@@ -184,6 +184,17 @@ describe('syncing', () => {
     w.close();
   });
 
+  it.each([[429, 'Too many wrong access tokens'], [421, 'Unrecognised host'], [408, 'timeout']])('a %i reply is "try again later": the change stays queued, never dropped as rejected', async (status, text) => {
+    const stub = async () => ({ status, ok: false, headers: { get: () => 'text/plain' }, text: async () => text });
+    const s = createSync({ base: 'http://pc.invalid:8787', token: 't', kv: memoryKv(), fetch: stub as never, uuid: () => 'op-1-xxxxxxxx', now: () => `${TODAY}T09:00:00`, db: phoneDb() });
+    await s.init();
+    await s.run('addTx', tx('Locked Out', 100, `${M}-08T10:00:00`));
+    await s.flush(); await s.flush();
+    expect(s.getSnapshot()).toMatchObject({ rejected: [], authFailed: false });
+    expect(s.getSnapshot().pending).toHaveLength(1);
+    if (status === 421) await expect(s.remote('backup', { passphrase: 'abcdef' })).rejects.toMatchObject({ code: 'host', message: expect.stringContaining('address') });
+  });
+
   it('brings in changes made elsewhere (another phone, a statement import)', async () => {
     const w = await world();
     svc.createTx(w.serverDb, tx('From Another Device', 123, `${M}-08T10:00:00`));

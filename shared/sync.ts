@@ -44,6 +44,9 @@ export function createSync(cfg: SyncConfig) {
   const setAuth = (v: boolean) => { if (v !== authFailed) { authFailed = v; emit(); } };
   /** 401/403 = "I can't tell who you are": a configuration problem, never a verdict on the change itself. */
   const isAuth = (status: number) => status === 401 || status === 403;
+  /** "Not now", never a verdict on the change: server trouble (5xx), a lockout/rate limit (429), a timeout (408), or an address the server
+   *  doesn't recognise (421, e.g. a typo in the PC address). The change stays queued and is retried. */
+  const retryLater = (status: number) => status >= 500 || status === 429 || status === 408 || status === 421;
   /** The database copy and the outbox are saved together in ONE value, so after a crash they always agree. */
   const persist = () => cfg.kv.set('state', JSON.stringify({ tables: exportTables(db), pending, rejected, lastSync }));
 
@@ -69,6 +72,7 @@ export function createSync(cfg: SyncConfig) {
     let e: any = {};
     try { e = JSON.parse(r.text); } catch { /* not JSON */ }
     if (isAuth(r.status)) return new ApiError(r.status, "The server didn't accept this app's access token. Check that EXPO_PUBLIC_API_TOKEN matches the server's CA_API_TOKEN, then restart Expo.", 'auth');
+    if (r.status === 421) return new ApiError(421, "The server doesn't recognise this address. Use one of the addresses shown in the Personal CA window on your PC.", 'host');
     return new ApiError(r.status, e.details?.join(', ') ?? e.error ?? `HTTP ${r.status}`, e.code);
   };
 
@@ -116,7 +120,7 @@ export function createSync(cfg: SyncConfig) {
           try { r = await net(h.method, h.path, h.body, op.id); } catch { setOnline(false); break; }
           setOnline(true);
           if (isAuth(r.status)) { setAuth(true); break; } // wrong/missing token: keep EVERYTHING queued, retry once it is fixed
-          if (r.status >= 500) break;
+          if (retryLater(r.status)) break;
           setAuth(false);
           pending = pending.slice(1);
           if (!r.ok) rejected = [...rejected, { op, error: fail(r).message }];

@@ -126,6 +126,24 @@ function Main() {
   );
 }
 
+/** A screen that crashes while drawing shows this instead of closing the app. Nothing is lost: your data lives in the on-device database. */
+class Boundary extends React.Component<{ children: React.ReactNode }, { err: string | null }> {
+  state = { err: null as string | null };
+  static getDerivedStateFromError(e: unknown) { return { err: String((e as Error)?.message ?? e) }; }
+  render() {
+    if (this.state.err === null) return this.props.children;
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12 }}>
+        <T size={56}>🛟</T>
+        <T size={24} w="black">Something went wrong</T>
+        <Muted center>Your data is safe on this phone. Try again, and if it keeps happening, close and reopen the app.</Muted>
+        <Muted size={11} center>{this.state.err}</Muted>
+        <Btn label="Try again" onPress={() => this.setState({ err: null })} />
+      </View>
+    );
+  }
+}
+
 export default function App() {
   const [fontsReady] = useFonts({ Outfit_400Regular, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold });
   // The app starts once the on-device database is open and restored from its encrypted snapshot.
@@ -135,7 +153,7 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-        {!fontsReady ? null : db === 'ready' ? <LockGate><Main /></LockGate> : (
+        {!fontsReady ? null : db === 'ready' ? <LockGate><Boundary><Main /></Boundary></LockGate> : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 12 }}>
             <T size={56}>💜</T>
             <T size={28} w="black">Personal CA</T>
