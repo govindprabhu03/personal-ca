@@ -138001,6 +138001,7 @@ function fromPayload(p2) {
   db.prepare("UPDATE meta SET value = ? WHERE key = 'server_id'").run(p2.id);
   return db;
 }
+var why = (e2) => `${e2?.name ?? "Error"}: ${String(e2?.message ?? e2).slice(0, 200)}`;
 var DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 function createCloudHandler(cfg) {
   const log = cfg.log ?? quietLogger;
@@ -138051,14 +138052,14 @@ function createCloudHandler(cfg) {
     });
     return p2;
   };
-  return (req, res) => exclusive(async () => {
+  const serve = (req, res) => exclusive(async () => {
     const realEnd = res.end.bind(res);
-    const reply = (status, error62, code) => {
+    const reply = (status, error62, code, detail) => {
       for (const h2 of ["content-length", "etag", "content-type"]) res.removeHeader(h2);
       res.statusCode = status;
       res.setHeader("content-type", "application/json");
       res.setHeader("retry-after", "2");
-      realEnd(JSON.stringify({ error: error62, code }));
+      realEnd(JSON.stringify({ error: error62, code, ...detail ? { detail } : {} }));
     };
     let c2;
     try {
@@ -138066,7 +138067,7 @@ function createCloudHandler(cfg) {
     } catch (e2) {
       drop();
       log.error("data store unreachable (load)", e2);
-      return reply(503, "The data store is not reachable right now. Try again in a moment.", "storage");
+      return reply(503, "The data store is not reachable right now. Try again in a moment.", "storage", why(e2));
     }
     current = c2.db;
     const held = await new Promise((resolve2) => {
@@ -138095,12 +138096,19 @@ function createCloudHandler(cfg) {
             return reply(503, "Another device was saving at the same moment. Try again.", "conflict");
           }
           log.error("data store unreachable (save)", e2);
-          return reply(503, "Could not save to the data store. Nothing was changed; try again.", "storage");
+          return reply(503, "Could not save to the data store. Nothing was changed; try again.", "storage", why(e2));
         }
       }
     }
     realEnd(...held);
   });
+  return (req, res) => {
+    if (req.method === "GET" && (req.url ?? "").split("?")[0] === "/api/health") {
+      app(req, res);
+      return Promise.resolve();
+    }
+    return serve(req, res);
+  };
 }
 
 // src/vercel.ts

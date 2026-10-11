@@ -43,6 +43,7 @@ function fromPayload(p: Payload | null): DatabaseSync {
 
 export interface CloudConfig { store: Store; dataKey: string; token: string; log?: Logger; llm?: LlmClient | null; trustProxy?: number; today?: () => string }
 type Cache = { db: DatabaseSync; version: string; hash: string };
+const why = (e: unknown) => `${(e as Error)?.name ?? 'Error'}: ${String((e as Error)?.message ?? e).slice(0, 200)}`; // what went wrong, never any data
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export function createCloudHandler(cfg: CloudConfig) {
@@ -87,16 +88,16 @@ export function createCloudHandler(cfg: CloudConfig) {
   let tail: Promise<unknown> = Promise.resolve();
   const exclusive = <T>(f: () => Promise<T>): Promise<T> => { const p = tail.then(f, f); tail = p.catch(() => {}); return p; };
 
-  return (req: IncomingMessage, res: ServerResponse): Promise<void> => exclusive(async () => {
+  const serve = (req: IncomingMessage, res: ServerResponse): Promise<void> => exclusive(async () => {
     const realEnd = res.end.bind(res) as (...a: unknown[]) => unknown;
-    const reply = (status: number, error: string, code: string) => { // replaces whatever the app was about to send
+    const reply = (status: number, error: string, code: string, detail?: string) => { // replaces whatever the app was about to send
       for (const h of ['content-length', 'etag', 'content-type']) res.removeHeader(h);
       res.statusCode = status; res.setHeader('content-type', 'application/json'); res.setHeader('retry-after', '2');
-      realEnd(JSON.stringify({ error, code }));
+      realEnd(JSON.stringify({ error, code, ...(detail ? { detail } : {}) }));
     };
 
     let c: Cache;
-    try { c = await refresh(); } catch (e) { drop(); log.error('data store unreachable (load)', e); return reply(503, 'The data store is not reachable right now. Try again in a moment.', 'storage'); }
+    try { c = await refresh(); } catch (e) { drop(); log.error('data store unreachable (load)', e); return reply(503, 'The data store is not reachable right now. Try again in a moment.', 'storage', why(e)); }
     current = c.db;
 
     // Let the app run, but hold its reply (headers are only written when end() is called) until we know the change is safely stored.
@@ -115,10 +116,16 @@ export function createCloudHandler(cfg: CloudConfig) {
           drop();
           if (e instanceof ConflictError) { log.warn('save conflict: another instance saved first; the client will retry'); return reply(503, 'Another device was saving at the same moment. Try again.', 'conflict'); }
           log.error('data store unreachable (save)', e);
-          return reply(503, 'Could not save to the data store. Nothing was changed; try again.', 'storage');
+          return reply(503, 'Could not save to the data store. Nothing was changed; try again.', 'storage', why(e));
         }
       }
     }
     realEnd(...held);
   });
+
+  return (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    // "Is the process alive?" must not depend on storage (a hosting platform probes it), so it skips the database entirely.
+    if (req.method === 'GET' && (req.url ?? '').split('?')[0] === '/api/health') { app(req as never, res as never); return Promise.resolve(); }
+    return serve(req, res);
+  };
 }

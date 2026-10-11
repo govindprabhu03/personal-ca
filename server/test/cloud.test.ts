@@ -109,6 +109,15 @@ describe('the hosted server keeps its database in an object store', () => {
     expect(await b.txs()).toEqual(['Once Only']);
   });
 
+  it('health answers even when the store is down, while real requests say why they cannot be served', async () => {
+    const broken = { saves: 0, loads: 0, failSaves: 0, beforeSave: undefined, archives: new Map(), peek: () => null, load: async () => { throw Object.assign(new Error('Access denied for this store'), { name: 'BlobAccessError' }); }, save: async () => '1' } as unknown as ReturnType<typeof memoryStore>;
+    const a = await instance(broken);
+    expect((await a.call('/api/health')).status).toBe(200);
+    const r = await a.call('/api/bootstrap');
+    expect(r.status).toBe(503);
+    expect(await r.json()).toMatchObject({ code: 'storage', detail: 'BlobAccessError: Access denied for this store' });
+  });
+
   it('keeps one spare copy a day, and still refuses a wrong token', async () => {
     const store = memoryStore();
     const a = await instance(store);
