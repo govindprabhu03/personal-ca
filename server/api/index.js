@@ -137959,16 +137959,17 @@ var ConflictError2 = class extends Error {
 };
 function blobStore(prefix = "personalca") {
   const main2 = `${prefix}/db.bin`;
+  const auth = () => process.env.BLOB_READ_WRITE_TOKEN ? { token: process.env.BLOB_READ_WRITE_TOKEN } : {};
   return {
     async load(since) {
-      const r2 = await get2(main2, { access: "private", useCache: false, ...since ? { ifNoneMatch: since } : {} });
+      const r2 = await get2(main2, { ...auth(), access: "private", useCache: false, ...since ? { ifNoneMatch: since } : {} });
       if (!r2) return null;
       if (r2.statusCode === 304) return { unchanged: true };
       return { data: Buffer.from(await new Response(r2.stream).arrayBuffer()), version: r2.blob.etag };
     },
     async save(data, expected) {
       try {
-        const r2 = await put(main2, data, { access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: expected !== null, ...expected ? { ifMatch: expected } : {} });
+        const r2 = await put(main2, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: expected !== null, ...expected ? { ifMatch: expected } : {} });
         return r2.etag;
       } catch (e2) {
         if (e2 instanceof BlobPreconditionFailedError || expected === null && /already exists/i.test(String(e2?.message))) throw new ConflictError2("the stored data changed under us");
@@ -137976,7 +137977,7 @@ function blobStore(prefix = "personalca") {
       }
     },
     async archive(slot, data) {
-      await put(`${prefix}/backup-${slot}.bin`, data, { access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: true });
+      await put(`${prefix}/backup-${slot}.bin`, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: true });
     }
   };
 }

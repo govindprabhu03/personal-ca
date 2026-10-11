@@ -18,16 +18,18 @@ export interface Store {
 /** Vercel Blob, private access. Needs BLOB_READ_WRITE_TOKEN (Vercel adds it when the store is connected to the project). */
 export function blobStore(prefix = 'personalca'): Store {
   const main = `${prefix}/db.bin`;
+  // An explicit token wins: left to itself the SDK prefers the project's OIDC identity whenever BLOB_STORE_ID is also set.
+  const auth = () => (process.env.BLOB_READ_WRITE_TOKEN ? { token: process.env.BLOB_READ_WRITE_TOKEN } : {});
   return {
     async load(since) {
-      const r = await get(main, { access: 'private', useCache: false, ...(since ? { ifNoneMatch: since } : {}) });
+      const r = await get(main, { ...auth(), access: 'private', useCache: false, ...(since ? { ifNoneMatch: since } : {}) });
       if (!r) return null;
       if (r.statusCode === 304) return { unchanged: true };
       return { data: Buffer.from(await new Response(r.stream).arrayBuffer()), version: r.blob.etag };
     },
     async save(data, expected) {
       try {
-        const r = await put(main, data, { access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: expected !== null, ...(expected ? { ifMatch: expected } : {}) });
+        const r = await put(main, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: expected !== null, ...(expected ? { ifMatch: expected } : {}) });
         return r.etag;
       } catch (e) {
         if (e instanceof BlobPreconditionFailedError || (expected === null && /already exists/i.test(String((e as Error)?.message)))) throw new ConflictError('the stored data changed under us');
@@ -35,7 +37,7 @@ export function blobStore(prefix = 'personalca'): Store {
       }
     },
     async archive(slot, data) {
-      await put(`${prefix}/backup-${slot}.bin`, data, { access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: true });
+      await put(`${prefix}/backup-${slot}.bin`, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: true });
     },
   };
 }
