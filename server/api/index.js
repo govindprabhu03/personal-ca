@@ -6093,8 +6093,8 @@ async function extractSkillArchive(resp, dest) {
   const stage = path.join(path.dirname(dest), `.skill-stage-${process.pid}-${Date.now()}`);
   const excludeFile = path.join(path.dirname(dest), `.skill-exclude-${process.pid}-${Date.now()}`);
   try {
-    const head = await readHead(tmp, 4);
-    const isZip = head.length >= 4 && head[0] === 80 && head[1] === 75 && head[2] === 3 && head[3] === 4;
+    const head2 = await readHead(tmp, 4);
+    const isZip = head2.length >= 4 && head2[0] === 80 && head2[1] === 75 && head2[2] === 3 && head2[3] === 4;
     const archiveCmd = isZip ? "unzip" : "tar";
     const names = await runArchiveTool(archiveCmd, isZip ? ["-Z1", tmp] : ["-tf", tmp]);
     const typed = await runArchiveTool(archiveCmd, isZip ? ["-Z", "--h", "--t", tmp] : ["-tvf", tmp]);
@@ -101488,7 +101488,7 @@ var require_client_h1 = __commonJS({
           util2.destroy(this.socket, new HeadersOverflowError());
         }
       }
-      onUpgrade(head) {
+      onUpgrade(head2) {
         const { upgrade, client, socket, headers, statusCode, statusText } = this;
         assert3(upgrade);
         assert3(client[kSocket] === socket);
@@ -101503,7 +101503,7 @@ var require_client_h1 = __commonJS({
         this.shouldKeepAlive = null;
         this.headers = [];
         this.headersSize = 0;
-        socket.unshift(head);
+        socket.unshift(head2);
         socket[kParser].destroy();
         socket[kParser] = null;
         socket[kClient] = null;
@@ -134942,8 +134942,8 @@ var csvCell = (v2) => {
 function exportCsv(db) {
   const rows = all(db, `SELECT t.*, c.name AS category_name, a.name AS account FROM transactions t
     LEFT JOIN categories c ON c.id = t.category_id JOIN accounts a ON a.id = t.account_id ORDER BY t.occurred_at`);
-  const head = "date,account,merchant,category,bucket,amount_inr,payment_method,regret,note";
-  return [head, ...rows.map((t2) => [
+  const head2 = "date,account,merchant,category,bucket,amount_inr,payment_method,regret,note";
+  return [head2, ...rows.map((t2) => [
     t2.occurred_at,
     t2.account,
     t2.merchant_raw,
@@ -135209,8 +135209,8 @@ function decrypt(blob, pass) {
 var import_node_crypto2 = require("node:crypto");
 function parseCsv(text) {
   text = text.replace(/^﻿/, "");
-  const head = text.split(/\r?\n/).slice(0, 10).join("\n");
-  const delim = [",", ";", "	"].map((d2) => [d2, head.split(d2).length]).sort((a2, b2) => b2[1] - a2[1])[0][0];
+  const head2 = text.split(/\r?\n/).slice(0, 10).join("\n");
+  const delim = [",", ";", "	"].map((d2) => [d2, head2.split(d2).length]).sort((a2, b2) => b2[1] - a2[1])[0][0];
   const rows = [];
   let row = [], cell = "", quoted = false;
   for (let i2 = 0; i2 < text.length; i2++) {
@@ -135400,8 +135400,8 @@ async function parsePdfStatement(data, password) {
     throw new PdfError("pdf_no_text", "This PDF has no readable text; it looks like a scan or photo. Download the CSV from your bank instead.");
   const lines = pages.map(toLines);
   const isHeader = (l2) => /\bdate\b/i.test(l2.text) && /narration|description|particulars|details|remarks|transaction/i.test(l2.text) && /withdraw|debit|deposit|credit|amount/i.test(l2.text);
-  const head = lines.flat().find(isHeader);
-  const debitX = head?.items.find((i2) => /withdraw|debit|^dr$/i.test(i2.s)), creditX = head?.items.find((i2) => /deposit|credit|^cr$/i.test(i2.s));
+  const head2 = lines.flat().find(isHeader);
+  const debitX = head2?.items.find((i2) => /withdraw|debit|^dr$/i.test(i2.s)), creditX = head2?.items.find((i2) => /deposit|credit|^cr$/i.test(i2.s));
   const rows = [];
   let prevBalance = null, guessed = 0, mismatches = 0, anyMark = false;
   for (const pageLines of lines) {
@@ -137792,6 +137792,29 @@ var utf8Encoder = new TextEncoder();
 
 // node_modules/@vercel/blob/dist/index.js
 var import_undici2 = __toESM(require_undici(), 1);
+async function head(urlOrPathname, options) {
+  const searchParams = new URLSearchParams({ url: urlOrPathname });
+  const response = await requestApi(
+    `?${searchParams.toString()}`,
+    // HEAD can't have body as a response, so we use GET
+    {
+      method: "GET",
+      signal: options == null ? void 0 : options.abortSignal
+    },
+    options
+  );
+  return {
+    url: response.url,
+    downloadUrl: response.downloadUrl,
+    pathname: response.pathname,
+    size: response.size,
+    contentType: response.contentType,
+    contentDisposition: response.contentDisposition,
+    cacheControl: response.cacheControl,
+    uploadedAt: new Date(response.uploadedAt),
+    etag: response.etag
+  };
+}
 function extractPathnameFromUrl(url2) {
   try {
     const parsedUrl = new URL(url2);
@@ -137960,21 +137983,33 @@ var ConflictError2 = class extends Error {
 function blobStore(prefix = "personalca") {
   const main2 = `${prefix}/db.bin`;
   const auth = () => process.env.BLOB_READ_WRITE_TOKEN ? { token: process.env.BLOB_READ_WRITE_TOKEN } : {};
+  const etag = async () => {
+    try {
+      return (await head(main2, auth())).etag;
+    } catch (e2) {
+      if (e2 instanceof BlobNotFoundError) return null;
+      throw e2;
+    }
+  };
   return {
     async load(since) {
-      const r2 = await get2(main2, { ...auth(), access: "private", useCache: false, ...since ? { ifNoneMatch: since } : {} });
-      if (!r2) return null;
-      if (r2.statusCode === 304) return { unchanged: true };
-      return { data: Buffer.from(await new Response(r2.stream).arrayBuffer()), version: r2.blob.etag };
+      const version2 = await etag();
+      if (version2 === null) return null;
+      if (version2 === since) return { unchanged: true };
+      const r2 = await get2(main2, { ...auth(), access: "private", useCache: false });
+      if (!r2 || r2.statusCode !== 200) return null;
+      return { data: Buffer.from(await new Response(r2.stream).arrayBuffer()), version: version2 };
     },
     async save(data, expected) {
       try {
-        const r2 = await put(main2, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: expected !== null, ...expected ? { ifMatch: expected } : {} });
-        return r2.etag;
+        await put(main2, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: expected !== null, ...expected ? { ifMatch: expected } : {} });
       } catch (e2) {
-        if (e2 instanceof BlobPreconditionFailedError || expected === null && /already exists/i.test(String(e2?.message))) throw new ConflictError2("the stored data changed under us");
+        if (e2 instanceof BlobPreconditionFailedError || expected === null && /already exists/i.test(String(e2?.message))) {
+          throw new ConflictError2(`expected version ${expected}, the store has ${await etag().catch(() => "?")}`);
+        }
         throw e2;
       }
+      return await etag() ?? "";
     },
     async archive(slot, data) {
       await put(`${prefix}/backup-${slot}.bin`, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: true });
@@ -138094,7 +138129,7 @@ function createCloudHandler(cfg) {
           drop();
           if (e2 instanceof ConflictError2) {
             log.warn("save conflict: another instance saved first; the client will retry");
-            return reply(503, "Another device was saving at the same moment. Try again.", "conflict");
+            return reply(503, "Another device was saving at the same moment. Try again.", "conflict", why(e2));
           }
           log.error("data store unreachable (save)", e2);
           return reply(503, "Could not save to the data store. Nothing was changed; try again.", "storage", why(e2));

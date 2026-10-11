@@ -1,6 +1,6 @@
 // Where a hosted server keeps its database when the host has no persistent disk (Vercel Functions): ONE encrypted blob in an object store.
 // Every save says which version it is replacing, so two instances can never silently overwrite each other.
-import { BlobPreconditionFailedError, get, put } from '@vercel/blob';
+import { BlobNotFoundError, BlobPreconditionFailedError, get, head, put } from '@vercel/blob';
 
 /** Someone else saved first. The caller discards its work and the client retries. */
 export class ConflictError extends Error {}
@@ -20,21 +20,30 @@ export function blobStore(prefix = 'personalca'): Store {
   const main = `${prefix}/db.bin`;
   // An explicit token wins: left to itself the SDK prefers the project's OIDC identity whenever BLOB_STORE_ID is also set.
   const auth = () => (process.env.BLOB_READ_WRITE_TOKEN ? { token: process.env.BLOB_READ_WRITE_TOKEN } : {});
+  // The version is ALWAYS the ETag that head() reports (the form ifMatch is documented to take), never one read from a download.
+  const etag = async (): Promise<string | null> => {
+    try { return (await head(main, auth())).etag; } catch (e) { if (e instanceof BlobNotFoundError) return null; throw e; }
+  };
   return {
     async load(since) {
-      const r = await get(main, { ...auth(), access: 'private', useCache: false, ...(since ? { ifNoneMatch: since } : {}) });
-      if (!r) return null;
-      if (r.statusCode === 304) return { unchanged: true };
-      return { data: Buffer.from(await new Response(r.stream).arrayBuffer()), version: r.blob.etag };
+      const version = await etag();
+      if (version === null) return null;
+      if (version === since) return { unchanged: true };
+      const r = await get(main, { ...auth(), access: 'private', useCache: false });
+      if (!r || r.statusCode !== 200) return null;
+      // (if the blob changed between the two calls we hold a newer body under an older version: the next save then conflicts and the client retries, which is safe)
+      return { data: Buffer.from(await new Response(r.stream).arrayBuffer()), version };
     },
     async save(data, expected) {
       try {
-        const r = await put(main, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: expected !== null, ...(expected ? { ifMatch: expected } : {}) });
-        return r.etag;
+        await put(main, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: expected !== null, ...(expected ? { ifMatch: expected } : {}) });
       } catch (e) {
-        if (e instanceof BlobPreconditionFailedError || (expected === null && /already exists/i.test(String((e as Error)?.message)))) throw new ConflictError('the stored data changed under us');
+        if (e instanceof BlobPreconditionFailedError || (expected === null && /already exists/i.test(String((e as Error)?.message)))) {
+          throw new ConflictError(`expected version ${expected}, the store has ${await etag().catch(() => '?')}`);
+        }
         throw e;
       }
+      return (await etag()) ?? '';
     },
     async archive(slot, data) {
       await put(`${prefix}/backup-${slot}.bin`, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: true });

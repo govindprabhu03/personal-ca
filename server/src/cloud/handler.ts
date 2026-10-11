@@ -114,7 +114,7 @@ export function createCloudHandler(cfg: CloudConfig) {
         try { c.version = await cfg.store.save(sealed, c.version); c.hash = hash; await keepSpareCopy(sealed); }
         catch (e) {
           drop();
-          if (e instanceof ConflictError) { log.warn('save conflict: another instance saved first; the client will retry'); return reply(503, 'Another device was saving at the same moment. Try again.', 'conflict'); }
+          if (e instanceof ConflictError) { log.warn('save conflict: another instance saved first; the client will retry'); return reply(503, 'Another device was saving at the same moment. Try again.', 'conflict', why(e)); }
           log.error('data store unreachable (save)', e);
           return reply(503, 'Could not save to the data store. Nothing was changed; try again.', 'storage', why(e));
         }
