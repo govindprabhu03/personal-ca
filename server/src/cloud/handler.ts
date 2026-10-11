@@ -90,15 +90,18 @@ export function createCloudHandler(cfg: CloudConfig) {
 
   const serve = (req: IncomingMessage, res: ServerResponse): Promise<void> => exclusive(async () => {
     const realEnd = res.end.bind(res) as (...a: unknown[]) => unknown;
+    const t0 = Date.now(); let tLoad = 0, tApp = 0, tSave = 0;
+    const timing = () => res.setHeader('Server-Timing', `load;dur=${tLoad}, app;dur=${tApp}, save;dur=${tSave}`); // where the time went (visible in browser tools and to the client)
     const reply = (status: number, error: string, code: string, detail?: string) => { // replaces whatever the app was about to send
       for (const h of ['content-length', 'etag', 'content-type']) res.removeHeader(h);
       res.statusCode = status; res.setHeader('content-type', 'application/json'); res.setHeader('retry-after', '2');
+      timing();
       realEnd(JSON.stringify({ error, code, ...(detail ? { detail } : {}) }));
     };
 
     let c: Cache;
     try { c = await refresh(); } catch (e) { drop(); log.error('data store unreachable (load)', e); return reply(503, 'The data store is not reachable right now. Try again in a moment.', 'storage', why(e)); }
-    current = c.db;
+    current = c.db; tLoad = Date.now() - t0;
 
     // Let the app run, but hold its reply (headers are only written when end() is called) until we know the change is safely stored.
     const held = await new Promise<unknown[]>((resolve) => {
@@ -106,12 +109,13 @@ export function createCloudHandler(cfg: CloudConfig) {
       app(req as never, res as never);
     });
 
-    if (res.statusCode >= 500) { drop(); return void realEnd(...held); } // an unexpected failure: don't trust the in-memory copy any more
+    tApp = Date.now() - t0 - tLoad;
+    if (res.statusCode >= 500) { drop(); timing(); return void realEnd(...held); } // an unexpected failure: don't trust the in-memory copy any more
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method ?? '')) {
       const json = toJson(c.db), hash = sha(json);
       if (hash !== c.hash) {
-        const sealed = seal(json, cfg.dataKey);
-        try { c.version = await cfg.store.save(sealed, c.version); c.hash = hash; await keepSpareCopy(sealed); }
+        const s0 = Date.now(), sealed = seal(json, cfg.dataKey);
+        try { c.version = await cfg.store.save(sealed, c.version); c.hash = hash; tSave = Date.now() - s0; await keepSpareCopy(sealed); }
         catch (e) {
           drop();
           if (e instanceof ConflictError) { log.warn('save conflict: another instance saved first; the client will retry'); return reply(503, 'Another device was saving at the same moment. Try again.', 'conflict', why(e)); }
@@ -120,6 +124,7 @@ export function createCloudHandler(cfg: CloudConfig) {
         }
       }
     }
+    timing();
     realEnd(...held);
   });
 

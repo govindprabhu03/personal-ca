@@ -138090,11 +138090,15 @@ function createCloudHandler(cfg) {
   };
   const serve = (req, res) => exclusive(async () => {
     const realEnd = res.end.bind(res);
+    const t0 = Date.now();
+    let tLoad = 0, tApp = 0, tSave = 0;
+    const timing = () => res.setHeader("Server-Timing", `load;dur=${tLoad}, app;dur=${tApp}, save;dur=${tSave}`);
     const reply = (status, error62, code, detail) => {
       for (const h2 of ["content-length", "etag", "content-type"]) res.removeHeader(h2);
       res.statusCode = status;
       res.setHeader("content-type", "application/json");
       res.setHeader("retry-after", "2");
+      timing();
       realEnd(JSON.stringify({ error: error62, code, ...detail ? { detail } : {} }));
     };
     let c2;
@@ -138106,6 +138110,7 @@ function createCloudHandler(cfg) {
       return reply(503, "The data store is not reachable right now. Try again in a moment.", "storage", why(e2));
     }
     current = c2.db;
+    tLoad = Date.now() - t0;
     const held = await new Promise((resolve2) => {
       res.end = (...args) => {
         resolve2(args);
@@ -138113,17 +138118,20 @@ function createCloudHandler(cfg) {
       };
       app(req, res);
     });
+    tApp = Date.now() - t0 - tLoad;
     if (res.statusCode >= 500) {
       drop();
+      timing();
       return void realEnd(...held);
     }
     if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method ?? "")) {
       const json2 = toJson(c2.db), hash2 = sha(json2);
       if (hash2 !== c2.hash) {
-        const sealed = seal(json2, cfg.dataKey);
+        const s0 = Date.now(), sealed = seal(json2, cfg.dataKey);
         try {
           c2.version = await cfg.store.save(sealed, c2.version);
           c2.hash = hash2;
+          tSave = Date.now() - s0;
           await keepSpareCopy(sealed);
         } catch (e2) {
           drop();
@@ -138136,6 +138144,7 @@ function createCloudHandler(cfg) {
         }
       }
     }
+    timing();
     realEnd(...held);
   });
   return (req, res) => {
