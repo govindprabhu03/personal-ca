@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS profile (
   age_group TEXT NOT NULL DEFAULT 'under60' CHECK (age_group IN ('under60','senior','super_senior')),
   regime_pref TEXT NOT NULL DEFAULT 'auto' CHECK (regime_pref IN ('auto','new','old')),
   onboarded INTEGER NOT NULL DEFAULT 0);
+-- A person's tax details, one validated document per financial year (see core/tax/data.ts).
+CREATE TABLE IF NOT EXISTS tax_data (fy TEXT PRIMARY KEY, json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('bank','cash','card','wallet')),
   name TEXT NOT NULL, opening_paise INTEGER NOT NULL DEFAULT 0);
@@ -86,7 +88,7 @@ export function initSchema(db: DB) {
 
 /** "Delete all my data": one tap, everything gone, defaults re-seeded. */
 export function wipe(db: DB) {
-  db.exec('DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM transactions; DELETE FROM income; DELETE FROM merchant_rules; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM settings; DELETE FROM profile;');
+  db.exec('DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM transactions; DELETE FROM income; DELETE FROM merchant_rules; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM settings; DELETE FROM profile; DELETE FROM tax_data;');
   seed(db);
 }
 

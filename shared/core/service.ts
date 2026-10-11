@@ -252,7 +252,7 @@ export function exportCsv(db: DB): string {
 }
 
 // ---------- snapshot: the whole database as plain data (backup, restore, and phone <-> server sync) ----------
-const TABLES = ['accounts', 'categories', 'income', 'transactions', 'merchant_rules', 'goals', 'wishlist', 'bills', 'iou_entries'] as const;
+const TABLES = ['accounts', 'categories', 'income', 'transactions', 'merchant_rules', 'goals', 'wishlist', 'bills', 'iou_entries', 'tax_data'] as const;
 export type Snapshot = Record<string, any> & { settings: Settings };
 export function exportTables(db: DB): Snapshot {
   const data: Record<string, unknown> = { version: 1, exported_at: nowStr(), settings: getSettings(db), profile: getProfile(db) };
@@ -263,7 +263,7 @@ export function exportTables(db: DB): Snapshot {
 export function importTables(db: DB, d: Snapshot) {
   db.exec('BEGIN');
   try {
-    db.exec('DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM merchant_rules; DELETE FROM transactions; DELETE FROM income; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM categories;');
+    db.exec('DELETE FROM tax_data; DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM merchant_rules; DELETE FROM transactions; DELETE FROM income; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM categories;');
     for (const t of TABLES) for (const row of d[t] ?? []) {
       const cols = Object.keys(row);
       if (!cols.every((c) => /^[a-z][a-z0-9_]*$/.test(c))) throw new HttpError(400, `Rejected a column name in ${t}.`); // names go into the SQL text: never trust them
@@ -278,7 +278,7 @@ export const eraseAll = (db: DB) => wipe(db);
 
 /** True when nobody has entered anything yet (only the seeded defaults). A phone may fill an empty server with its data; it may never overwrite a non-empty one. */
 export function isEmpty(db: DB): boolean {
-  return !(['transactions', 'income', 'bills', 'goals', 'wishlist', 'iou_entries'] as const).some((t) => get<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${t}`)!.n > 0);
+  return !(['transactions', 'income', 'bills', 'goals', 'wishlist', 'iou_entries', 'tax_data'] as const).some((t) => get<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${t}`)!.n > 0);
 }
 
 /**

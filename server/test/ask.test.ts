@@ -6,6 +6,8 @@ import { createApp } from '../src/app';
 import type { LlmClient } from '../src/ask/agent';
 import { runTool } from '../src/ask/tools';
 import { openDb } from '../src/db';
+import * as svc from '../../shared/core/service';
+import { saveTaxInput } from '../../shared/core/tax/data';
 
 type Step = (params: any) => { content: any[]; stop_reason: string };
 let script: Step[] = [];
@@ -67,7 +69,7 @@ describe('Ask your CA', () => {
   it('sends the documented model setup: all tools, low effort, today in the prompt, refusal fallback on', async () => {
     const p = calls[0];
     expect([p.model, p.output_config, p.fallbacks, p.betas]).toEqual(['claude-opus-5-5', { effort: 'low' }, 'default', ['server-side-fallback-2026-07-01']]);
-    expect(p.tools.map((t: any) => t.name)).toEqual(['spend_summary', 'list_flags', 'savings_status', 'safe_to_spend', 'find_transactions', 'monthly_report', 'subscriptions', 'bills', 'friends']);
+    expect(p.tools.map((t: any) => t.name)).toEqual(['spend_summary', 'list_flags', 'savings_status', 'safe_to_spend', 'find_transactions', 'monthly_report', 'subscriptions', 'bills', 'tax_summary', 'tax_savings', 'friends']);
     expect(p.system).toContain('Today is 2026-03-10');
     expect(p.system).toContain('Never add up');
   });
@@ -135,5 +137,38 @@ describe('tool results are computed server-side', () => {
     expect((runTool(db, 'savings_status', {}, '2026-03-10') as any).savings_target_pct).toBe(20);
     expect((runTool(db, 'friends', {}, '2026-03-10') as any).owed_to_user_inr).toBe(0);
     expect((runTool(db, 'list_flags', { month: '2026-03', detector: 'late_night' }, '2026-03-10') as any).flags[0].detector).toBe('late_night');
+  });
+});
+
+describe('tax tools for Ask your CA', () => {
+  const toolDb = () => {
+    const db = openDb(':memory:');
+    svc.updateProfile(db, { taxpayer_types: ['salaried'], onboarded: true });
+    return db;
+  };
+  it('says so plainly when nothing has been entered, instead of inventing figures', () => {
+    const r = runTool(toolDb(), 'tax_summary', {}, '2026-10-11') as { entered: boolean; message: string };
+    expect(r.entered).toBe(false);
+    expect(r.message).toMatch(/Money > Tax/);
+  });
+  it('returns the app\'s own figures for the return year being filed (rupees, no raw paise), and the right form and deadlines', () => {
+    const db = toolDb();
+    saveTaxInput(db, '2025-26', { salary_gross: 1500000 * 100, tds: 90000 * 100 });
+    const r = runTool(db, 'tax_summary', {}, '2026-10-11') as any;
+    expect(r.fy).toBe('2025-26');
+    expect(r.itr_form).toBe('ITR-1');
+    expect(r.new_regime.tax_inr).toBe(97500);
+    expect(r.deadlines).toMatchObject({ due: '2026-07-31', due_date_passed: true, belated_window_open: true });
+    expect(r.reminder).toMatch(/not professional advice/);
+  });
+  it('tax_savings recomputes: 50,000 more in 80C saves 15,600 in the old regime at the 30% slab', () => {
+    const db = toolDb();
+    saveTaxInput(db, '2025-26', { salary_gross: 2000000 * 100, d80c: 100000 * 100 });
+    const r = runTool(db, 'tax_savings', { extra_80c_inr: 50000 }, '2026-10-11') as any;
+    expect(r.old_regime_saving_inr).toBe(15600);
+  });
+  it('refuses a year it has no rules for', () => {
+    const r = runTool(toolDb(), 'tax_summary', { fy: '2030-31' }, '2026-10-11') as { supported: boolean };
+    expect(r.supported).toBe(false);
   });
 });

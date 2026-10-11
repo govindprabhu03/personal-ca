@@ -11,12 +11,13 @@ import { Bar, Btn, Bubble, Card, Chip, Chips, ErrorText, Field, Hero, Money, Mut
 import { dayLabel } from '../util';
 import { BillsSection } from './Bills';
 import { FriendsSection } from './Friends';
+import { TaxSection } from './Tax';
 
 const STAGE: Record<string, string> = { starter: 'Starter shield: 1 month of essentials', min: 'Building your safety net', max: 'Topping up the full cushion', done: 'Emergency fund complete 🎉' };
 const GOAL_EMOJI = ['🎯', '💻', '📱', '🏖️', '🎧', '🚲', '🎓', '🎁'];
 
 export function Savings({ data, version, bump }: ScreenProps) {
-  const [seg, setSeg] = useState<'save' | 'bills' | 'friends'>('save');
+  const [seg, setSeg] = useState<'save' | 'bills' | 'friends' | 'tax'>('save');
   const plan = useLoad(() => api.savings(), [version]);
   const income = useLoad(() => api.income(data.today.slice(0, 7)), [version]);
   const goals = useLoad(() => api.goals(), [version]);
@@ -43,8 +44,9 @@ export function Savings({ data, version, bump }: ScreenProps) {
         <Chip label="🌱 Save" active={seg === 'save'} onPress={() => setSeg('save')} />
         <Chip label="🧾 Bills" active={seg === 'bills'} onPress={() => setSeg('bills')} color={C.orange} />
         <Chip label="🤝 Friends" active={seg === 'friends'} onPress={() => setSeg('friends')} color={C.mint} />
+        <Chip label="🧾 Tax" active={seg === 'tax'} onPress={() => setSeg('tax')} color={C.violet} />
       </Row>
-      {seg === 'bills' ? <BillsSection data={data} version={version} bump={bump} /> : seg === 'friends' ? <FriendsSection data={data} version={version} bump={bump} /> : (<>
+      {seg === 'tax' ? <TaxSection data={data} version={version} bump={bump} /> : seg === 'bills' ? <BillsSection data={data} version={version} bump={bump} /> : seg === 'friends' ? <FriendsSection data={data} version={version} bump={bump} /> : (<>
       <ErrorText error={err || plan.error} />
       {p && (
         <Hero colors={GRAD.lilac}>

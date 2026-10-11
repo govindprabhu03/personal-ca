@@ -657,10 +657,10 @@ function inner_stringify(object2, prefix, generateArrayPrefix, commaRoundTrip, a
   let step = 0;
   let find_flag = false;
   while ((tmp_sc = tmp_sc.get(sentinel)) !== void 0 && !find_flag) {
-    const pos = tmp_sc.get(object2);
+    const pos2 = tmp_sc.get(object2);
     step += 1;
-    if (typeof pos !== "undefined") {
-      if (pos === step) {
+    if (typeof pos2 !== "undefined") {
+      if (pos2 === step) {
         throw new RangeError("Cyclic object value");
       } else {
         find_flag = true;
@@ -4164,7 +4164,7 @@ var require_sha256 = __commonJS({
         3204031479,
         3329325298
       ]);
-      function hashBlocks(w2, v2, p2, pos, len) {
+      function hashBlocks(w2, v2, p2, pos2, len) {
         var a2, b2, c2, d2, e2, f2, g2, h2, u2, i2, j2, t1, t2;
         while (len >= 64) {
           a2 = v2[0];
@@ -4176,7 +4176,7 @@ var require_sha256 = __commonJS({
           g2 = v2[6];
           h2 = v2[7];
           for (i2 = 0; i2 < 16; i2++) {
-            j2 = pos + i2 * 4;
+            j2 = pos2 + i2 * 4;
             w2[i2] = (p2[j2] & 255) << 24 | (p2[j2 + 1] & 255) << 16 | (p2[j2 + 2] & 255) << 8 | p2[j2 + 3] & 255;
           }
           for (i2 = 16; i2 < 64; i2++) {
@@ -4206,10 +4206,10 @@ var require_sha256 = __commonJS({
           v2[5] += f2;
           v2[6] += g2;
           v2[7] += h2;
-          pos += 64;
+          pos2 += 64;
           len -= 64;
         }
-        return pos;
+        return pos2;
       }
       var Hash = (
         /** @class */
@@ -38895,10 +38895,10 @@ var require_stringify = __commonJS({
       var step = 0;
       var findFlag = false;
       while ((tmpSc = tmpSc.get(sentinel2)) !== void 0 && !findFlag) {
-        var pos = tmpSc.get(object2);
+        var pos2 = tmpSc.get(object2);
         step += 1;
-        if (typeof pos !== "undefined") {
-          if (pos === step) {
+        if (typeof pos2 !== "undefined") {
+          if (pos2 === step) {
             throw new RangeError("Cyclic object value");
           } else {
             findFlag = true;
@@ -39219,18 +39219,18 @@ var require_parse = __commonJS({
         }
         var part = parts[i2];
         var bracketEqualsPos = part.indexOf("]=");
-        var pos = bracketEqualsPos === -1 ? part.indexOf("=") : bracketEqualsPos + 1;
+        var pos2 = bracketEqualsPos === -1 ? part.indexOf("=") : bracketEqualsPos + 1;
         var key;
         var val;
-        if (pos === -1) {
+        if (pos2 === -1) {
           key = options.decoder(part, defaults2.decoder, charset, "key");
           val = options.strictNullHandling ? null : "";
         } else {
-          key = options.decoder(part.slice(0, pos), defaults2.decoder, charset, "key");
+          key = options.decoder(part.slice(0, pos2), defaults2.decoder, charset, "key");
           if (key !== null) {
             val = utils.maybeMap(
               parseArrayValue(
-                part.slice(pos + 1),
+                part.slice(pos2 + 1),
                 options,
                 isArray2(obj2[key]) ? obj2[key].length : 0
               ),
@@ -40842,17 +40842,17 @@ var require_proxy_addr = __commonJS({
       return len === 0 ? trustNone : len === 1 ? trustSingle(rangeSubnets[0]) : trustMulti(rangeSubnets);
     }
     function parseipNotation(note) {
-      var pos = note.lastIndexOf("/");
-      var str = pos !== -1 ? note.substring(0, pos) : note;
+      var pos2 = note.lastIndexOf("/");
+      var str = pos2 !== -1 ? note.substring(0, pos2) : note;
       if (!isip(str)) {
         throw new TypeError("invalid IP address: " + str);
       }
       var ip = parseip(str);
-      if (pos === -1 && ip.kind() === "ipv6" && ip.isIPv4MappedAddress()) {
+      if (pos2 === -1 && ip.kind() === "ipv6" && ip.isIPv4MappedAddress()) {
         ip = ip.toIPv4Address();
       }
       var max = ip.kind() === "ipv6" ? 128 : 32;
-      var range = pos !== -1 ? note.substring(pos + 1, note.length) : null;
+      var range = pos2 !== -1 ? note.substring(pos2 + 1, note.length) : null;
       if (range === null) {
         range = max;
       } else if (DIGIT_REGEXP.test(range)) {
@@ -49307,11 +49307,11 @@ function getDocument(e2 = {}) {
   setVerbosityLevel(d2);
   let F2 = { canvasFactory: new ee2({ ownerDocument: E2, enableHWA: ne2 }), filterFactory: new M3({ docId: n2, ownerDocument: E2 }), binaryDataFactory: oe2 ? null : new te2({ cMapUrl: p2, standardFontDataUrl: g2, wasmUrl: _2 }) };
   u2 || (u2 = Is.create({ verbosity: d2, port: GlobalWorkerOptions.workerPort }), t2._worker = u2);
-  let L2 = { docId: n2, apiVersion: `6.1.200`, data: i2, password: s2, disableAutoFetch: k2, rangeChunkSize: l2, docBaseUrl: f2, enableXfa: T2, evaluatorOptions: { maxImageSize: y2, disableFontFace: C4, ignoreErrors: v2, isOffscreenCanvasSupported: b2, isImageDecoderSupported: x2, canvasMaxAreaInBytes: S2, fontExtraProperties: w2, useSystemFonts: ae2, useWasm: ie2, useWorkerFetch: oe2, cMapUrl: p2, cMapPacked: m2, iccUrl: h2, standardFontDataUrl: g2, wasmUrl: _2, hasGPU: false } }, se2 = { ownerDocument: E2, pdfBug: j2, styleElement: null, enableHWA: ne2, loadingParams: { disableAutoFetch: k2, enableXfa: T2 } };
+  let L3 = { docId: n2, apiVersion: `6.1.200`, data: i2, password: s2, disableAutoFetch: k2, rangeChunkSize: l2, docBaseUrl: f2, enableXfa: T2, evaluatorOptions: { maxImageSize: y2, disableFontFace: C4, ignoreErrors: v2, isOffscreenCanvasSupported: b2, isImageDecoderSupported: x2, canvasMaxAreaInBytes: S2, fontExtraProperties: w2, useSystemFonts: ae2, useWasm: ie2, useWorkerFetch: oe2, cMapUrl: p2, cMapPacked: m2, iccUrl: h2, standardFontDataUrl: g2, wasmUrl: _2, hasGPU: false } }, se2 = { ownerDocument: E2, pdfBug: j2, styleElement: null, enableHWA: ne2, loadingParams: { disableAutoFetch: k2, enableXfa: T2 } };
   return Promise.all([u2.promise, re2]).then(function([, e3]) {
     if (u2.destroyed) throw Error(`Worker was destroyed`);
-    L2.evaluatorOptions.hasGPU = e3;
-    let s3 = u2.messageHandler.sendWithPromise(`GetDocRequest`, L2, i2 ? [i2.buffer] : null), d3;
+    L3.evaluatorOptions.hasGPU = e3;
+    let s3 = u2.messageHandler.sendWithPromise(`GetDocRequest`, L3, i2 ? [i2.buffer] : null), d3;
     if (!i2) if (c2) d3 = new PDFDataTransportStream({ pdfDataRangeTransport: c2, disableRange: D2, disableStream: O2 });
     else if (r2) d3 = new (getNetworkStream(r2))({ url: r2, httpHeaders: a2, withCredentials: o2, rangeChunkSize: l2, disableRange: D2, disableStream: O2 });
     else throw Error("getDocument - expected either `data`, `range`, or `url` parameter.");
@@ -85772,11 +85772,11 @@ var require_strip_final_newline = __commonJS({
     "use strict";
     module2.exports = (input2) => {
       const LF = typeof input2 === "string" ? "\n" : "\n".charCodeAt();
-      const CR = typeof input2 === "string" ? "\r" : "\r".charCodeAt();
+      const CR2 = typeof input2 === "string" ? "\r" : "\r".charCodeAt();
       if (input2[input2.length - 1] === LF) {
         input2 = input2.slice(0, input2.length - 1);
       }
-      if (input2[input2.length - 1] === CR) {
+      if (input2[input2.length - 1] === CR2) {
         input2 = input2.slice(0, input2.length - 1);
       }
       return input2;
@@ -99854,13 +99854,13 @@ var require_util2 = __commonJS({
       if (metadataList.length === 1) {
         return metadataList;
       }
-      let pos = 0;
+      let pos2 = 0;
       for (let i2 = 0; i2 < metadataList.length; ++i2) {
         if (metadataList[i2].algo === algorithm) {
-          metadataList[pos++] = metadataList[i2];
+          metadataList[pos2++] = metadataList[i2];
         }
       }
-      metadataList.length = pos;
+      metadataList.length = pos2;
       return metadataList;
     }
     function compareBase64Mixed(actualValue, expectedValue) {
@@ -113720,7 +113720,7 @@ var require_eventsource_stream = __commonJS({
     var { isASCIINumber, isValidLastEventId } = require_util8();
     var BOM = [239, 187, 191];
     var LF = 10;
-    var CR = 13;
+    var CR2 = 13;
     var COLON = 58;
     var SPACE = 32;
     var DATA = Buffer.from("data");
@@ -113831,8 +113831,8 @@ var require_eventsource_stream = __commonJS({
               }
               this.crlfCheck = false;
             }
-            if (byte === LF || byte === CR) {
-              if (byte === CR) {
+            if (byte === LF || byte === CR2) {
+              if (byte === CR2) {
                 this.crlfCheck = true;
               }
               this.consumeCurrentByte();
@@ -113845,8 +113845,8 @@ var require_eventsource_stream = __commonJS({
             this.eventEndCheck = false;
             continue;
           }
-          if (byte === LF || byte === CR) {
-            if (byte === CR) {
+          if (byte === LF || byte === CR2) {
+            if (byte === CR2) {
               this.crlfCheck = true;
             }
             this.parseLine(this.readLine(), this.event);
@@ -113992,16 +113992,16 @@ ${value}`;
       }
       peekBufferedByte(offset) {
         let chunkIndex = this.lineChunkIndex;
-        let pos = this.linePos;
+        let pos2 = this.linePos;
         while (chunkIndex < this.chunks.length) {
           const chunk = this.chunks[chunkIndex];
-          const remaining = chunk.length - pos;
+          const remaining = chunk.length - pos2;
           if (offset < remaining) {
-            return chunk[pos + offset];
+            return chunk[pos2 + offset];
           }
           offset -= remaining;
           chunkIndex++;
-          pos = 0;
+          pos2 = 0;
         }
       }
       discardLeadingBytes(count) {
@@ -135140,6 +135140,8 @@ CREATE TABLE IF NOT EXISTS profile (
   age_group TEXT NOT NULL DEFAULT 'under60' CHECK (age_group IN ('under60','senior','super_senior')),
   regime_pref TEXT NOT NULL DEFAULT 'auto' CHECK (regime_pref IN ('auto','new','old')),
   onboarded INTEGER NOT NULL DEFAULT 0);
+-- A person's tax details, one validated document per financial year (see core/tax/data.ts).
+CREATE TABLE IF NOT EXISTS tax_data (fy TEXT PRIMARY KEY, json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('bank','cash','card','wallet')),
   name TEXT NOT NULL, opening_paise INTEGER NOT NULL DEFAULT 0);
@@ -135198,7 +135200,7 @@ function initSchema(db) {
   seed(db);
 }
 function wipe(db) {
-  db.exec("DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM transactions; DELETE FROM income; DELETE FROM merchant_rules; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM settings; DELETE FROM profile;");
+  db.exec("DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM transactions; DELETE FROM income; DELETE FROM merchant_rules; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM settings; DELETE FROM profile; DELETE FROM tax_data;");
   seed(db);
 }
 
@@ -135388,7 +135390,7 @@ function monthlyReport(i2) {
   const totals = totalsOf(i2.txs), prev = totalsOf(i2.prevTxs);
   const spent = totals.need + totals.want + totals.waste;
   const prevSpent = prev.need + prev.want + prev.waste;
-  const pct2 = (n2) => i2.incomePaise > 0 ? Math.round(n2 / i2.incomePaise * 1e3) / 10 : 0;
+  const pct3 = (n2) => i2.incomePaise > 0 ? Math.round(n2 / i2.incomePaise * 1e3) / 10 : 0;
   const leaks = /* @__PURE__ */ new Map();
   for (const t2 of i2.txs) {
     const f2 = i2.flags.get(t2.id) ?? [];
@@ -135408,7 +135410,7 @@ function monthlyReport(i2) {
     spent_paise: spent,
     saved_paise: i2.incomePaise - spent,
     totals,
-    pct: { need: pct2(totals.need), want: pct2(totals.want + totals.waste), waste: pct2(totals.waste), savings: pct2(i2.incomePaise - spent) },
+    pct: { need: pct3(totals.need), want: pct3(totals.want + totals.waste), waste: pct3(totals.waste), savings: pct3(i2.incomePaise - spent) },
     targets: i2.targets,
     top_leaks: [...leaks].map(([label, l2]) => ({ label, amount_paise: l2.amount, count: l2.count, reasons: [...l2.reasons] })).sort((a2, b2) => b2.amount_paise - a2.amount_paise).slice(0, 5),
     vs_prev: { need: totals.need - prev.need, want: totals.want - prev.want, waste: totals.waste - prev.waste, spent: spent - prevSpent }
@@ -135748,7 +135750,7 @@ function exportCsv(db) {
     t2.note
   ].map(csvCell).join(","))].join("\n");
 }
-var TABLES = ["accounts", "categories", "income", "transactions", "merchant_rules", "goals", "wishlist", "bills", "iou_entries"];
+var TABLES = ["accounts", "categories", "income", "transactions", "merchant_rules", "goals", "wishlist", "bills", "iou_entries", "tax_data"];
 function exportTables(db) {
   const data = { version: 1, exported_at: nowStr(), settings: getSettings(db), profile: getProfile(db) };
   for (const t2 of TABLES) data[t2] = all(db, `SELECT * FROM ${t2}`);
@@ -135757,7 +135759,7 @@ function exportTables(db) {
 function importTables(db, d2) {
   db.exec("BEGIN");
   try {
-    db.exec("DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM merchant_rules; DELETE FROM transactions; DELETE FROM income; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM categories;");
+    db.exec("DELETE FROM tax_data; DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM merchant_rules; DELETE FROM transactions; DELETE FROM income; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM categories;");
     for (const t2 of TABLES) for (const row of d2[t2] ?? []) {
       const cols = Object.keys(row);
       if (!cols.every((c2) => /^[a-z][a-z0-9_]*$/.test(c2))) throw new HttpError(400, `Rejected a column name in ${t2}.`);
@@ -135773,7 +135775,7 @@ function importTables(db, d2) {
 }
 var eraseAll = (db) => wipe(db);
 function isEmpty(db) {
-  return !["transactions", "income", "bills", "goals", "wishlist", "iou_entries"].some((t2) => get(db, `SELECT COUNT(*) AS n FROM ${t2}`).n > 0);
+  return !["transactions", "income", "bills", "goals", "wishlist", "iou_entries", "tax_data"].some((t2) => get(db, `SELECT COUNT(*) AS n FROM ${t2}`).n > 0);
 }
 var REFERENCES = {
   income: { account_id: "accounts" },
@@ -136176,11 +136178,11 @@ function words(it2) {
   const parts = it2.s.split(/\s+/);
   if (parts.length === 1) return [it2];
   const w2 = it2.x1 - it2.x;
-  let pos = 0;
+  let pos2 = 0;
   return parts.map((p2) => {
-    const start = it2.s.indexOf(p2, pos);
-    pos = start + p2.length;
-    return { s: p2, y: it2.y, x: it2.x + w2 * start / it2.s.length, x1: it2.x + w2 * pos / it2.s.length };
+    const start = it2.s.indexOf(p2, pos2);
+    pos2 = start + p2.length;
+    return { s: p2, y: it2.y, x: it2.x + w2 * start / it2.s.length, x1: it2.x + w2 * pos2 / it2.s.length };
   });
 }
 var paise = (s2) => {
@@ -136366,6 +136368,524 @@ function restore(db, blob, passphrase) {
   importTables(db, data);
 }
 
+// ../shared/core/tax/rules.ts
+var rs2 = (rupees) => Math.round(rupees * 100);
+var L2 = (n2) => rs2(n2 * 1e5);
+var CR = (n2) => rs2(n2 * 1e7);
+var INF = Infinity;
+var TAX_YEARS = {
+  "2025-26": {
+    fy: "2025-26",
+    ay: "2026-27",
+    label: "FY 2025-26 (AY 2026-27)",
+    law: "1961",
+    slabs: {
+      new: [[L2(4), 0], [L2(8), 5], [L2(12), 10], [L2(16), 15], [L2(20), 20], [L2(24), 25], [INF, 30]],
+      old: {
+        under60: [[L2(2.5), 0], [L2(5), 5], [L2(10), 20], [INF, 30]],
+        senior: [[L2(3), 0], [L2(5), 5], [L2(10), 20], [INF, 30]],
+        super_senior: [[L2(5), 0], [L2(10), 20], [INF, 30]]
+      }
+    },
+    standardDeduction: { new: rs2(75e3), old: rs2(5e4) },
+    rebate: { new: { incomeLimit: L2(12), max: rs2(6e4) }, old: { incomeLimit: L2(5), max: rs2(12500) } },
+    cessPct: 4,
+    surcharge: { thresholds: [[CR(5), { new: 25, old: 37 }], [CR(2), { new: 25, old: 25 }], [CR(1), { new: 15, old: 15 }], [rs2(5e6), { new: 10, old: 10 }]], specialCap: 15 },
+    capitalGains: { stcg111a: 20, ltcg112a: 12.5, ltcg112aExempt: rs2(125e3), ltcg112: 12.5 },
+    limits: {
+      d80c: rs2(15e4),
+      d80ccd1b: rs2(5e4),
+      d80dSelf: rs2(25e3),
+      d80dSelfSenior: rs2(5e4),
+      d80dParents: rs2(25e3),
+      d80dParentsSenior: rs2(5e4),
+      d80tta: rs2(1e4),
+      d80ttb: rs2(5e4),
+      homeLoanSelfOccupied: rs2(2e5),
+      hpLossSetOff: rs2(2e5),
+      employerNps: { new: 14, old: 10 },
+      smallGift: rs2(5e4)
+    },
+    deadlines: { individual: "2026-07-31", business: "2026-08-31", audit: "2026-10-31", belated: "2026-12-31", revised: "2027-03-31" },
+    lateFee234F: { amount: rs2(5e3), ifIncomeUpTo: L2(5), reduced: rs2(1e3) }
+  }
+};
+var SUPPORTED_FYS = Object.keys(TAX_YEARS);
+function returnYearFor(today) {
+  const y2 = Number(today.slice(0, 4)), m2 = Number(today.slice(5, 7));
+  const endYear = m2 >= 4 ? y2 : y2 - 1;
+  return `${endYear - 1}-${String(endYear).slice(2)}`;
+}
+
+// ../shared/core/tax/compute.ts
+var emptyBusiness = () => ({ mode: "none", receipts: 0, digital_receipts: 0, expenses: 0 });
+var emptyInput = () => ({
+  salary_gross: 0,
+  hra_received: 0,
+  basic_da: 0,
+  rent_paid: 0,
+  metro: false,
+  other_exempt_allowances: 0,
+  professional_tax: 0,
+  pension: 0,
+  employer_nps: 0,
+  self_occupied_interest: 0,
+  let_out: [],
+  interest_savings: 0,
+  interest_deposits: 0,
+  interest_other: 0,
+  dividends: 0,
+  other_income: 0,
+  business: emptyBusiness(),
+  stcg_111a: 0,
+  stcg_other: 0,
+  ltcg_112a: 0,
+  ltcg_other: 0,
+  bf: { stcl: 0, ltcl: 0, business_loss: 0, hp_loss: 0 },
+  d80c: 0,
+  d80ccd1b: 0,
+  d80d_self: 0,
+  d80d_parents: 0,
+  parents_senior: false,
+  d80e: 0,
+  d80g: 0,
+  d_other: 0,
+  tds: 0,
+  tcs: 0,
+  advance_tax: 0,
+  self_assessment: 0,
+  agricultural_income: 0,
+  flags: { director: false, unlisted_shares: false, foreign_assets: false },
+  filing_date: null
+});
+var pct = (x2, p2) => Math.round(x2 * p2 / 100);
+var tens = (x2) => Math.round(x2 / 1e3) * 1e3;
+var pos = (x2) => Math.max(0, x2);
+function slabTax(income, slabs) {
+  let tax = 0, lower = 0;
+  for (const [upper, rate] of slabs) {
+    if (income > lower) tax += pct(Math.min(income, upper) - lower, rate);
+    if (income <= upper) break;
+    lower = upper;
+  }
+  return tax;
+}
+function hraExemption(i2) {
+  if (i2.hra_received <= 0) return 0;
+  return pos(Math.min(i2.hra_received, i2.rent_paid - pct(i2.basic_da, 10), pct(i2.basic_da, i2.metro ? 50 : 40)));
+}
+function taxOn(ctx2, regime, normal, sp, totalIncome, depth = 0) {
+  const y2 = ctx2.year, slabs = regime === "new" ? y2.slabs.new : y2.slabs.old[ctx2.resident ? ctx2.age : "under60"];
+  const slab = slabTax(normal, slabs);
+  const special111a = pct(sp.a111, y2.capitalGains.stcg111a), special112a = pct(sp.a112a, y2.capitalGains.ltcg112a), special112 = pct(sp.a112, y2.capitalGains.ltcg112);
+  const special = special111a + special112a + special112;
+  const rb = y2.rebate[regime];
+  let rebate = 0, relief87 = 0;
+  if (ctx2.resident) {
+    if (totalIncome <= rb.incomeLimit) rebate = Math.min(slab, rb.max);
+    else if (regime === "new" && special === 0) relief87 = pos(slab - (totalIncome - rb.incomeLimit));
+  }
+  const afterRebate = slab - rebate - relief87, before = afterRebate + special;
+  const bracket = y2.surcharge.thresholds.find(([t2]) => totalIncome > t2);
+  let surcharge = 0;
+  if (bracket) {
+    const [threshold, rates] = bracket, rate = rates[regime];
+    surcharge = pct(afterRebate, rate) + pct(special, Math.min(rate, y2.surcharge.specialCap));
+    if (depth < 4) {
+      const cut = totalIncome - threshold;
+      const atThreshold = taxOn(ctx2, regime, pos(normal - cut), sp, threshold, depth + 1);
+      surcharge = Math.min(surcharge, pos(atThreshold.before + atThreshold.surcharge - before + cut));
+    }
+  }
+  const cess = pct(before + surcharge, y2.cessPct);
+  return { slab, special111a, special112a, special112, rebate, relief87, surcharge, cess, before, total: before + surcharge + cess };
+}
+function monthsLate(due, filed) {
+  if (filed <= due) return 0;
+  const [dy, dm, dd] = due.split("-").map(Number), [fy, fm, fd] = filed.split("-").map(Number);
+  return (fy - dy) * 12 + (fm - dm) + (fd > dd ? 1 : 0);
+}
+function computeRegime(i2, ctx2, regime) {
+  const y2 = ctx2.year, isNew = regime === "new", notes = [];
+  const base = i2.salary_gross + i2.pension;
+  const exemptions = isNew ? 0 : hraExemption(i2) + i2.other_exempt_allowances;
+  const std = Math.min(y2.standardDeduction[regime], base);
+  const profTax = isNew ? 0 : i2.professional_tax;
+  const salary = pos(base - exemptions - std - profTax);
+  if (isNew && (i2.hra_received || i2.other_exempt_allowances || i2.professional_tax)) notes.push("New regime: HRA, other exempt allowances and professional tax are not allowed.");
+  const selfOcc = isNew ? 0 : -Math.min(i2.self_occupied_interest, y2.limits.homeLoanSelfOccupied);
+  const letOut = i2.let_out.reduce((s2, p2) => {
+    const nav = pos(p2.rent - p2.municipal_tax);
+    return s2 + nav - pct(nav, 30) - p2.interest;
+  }, 0);
+  let hpNet = selfOcc + letOut, hpBfUsed = 0;
+  if (hpNet > 0) {
+    hpBfUsed = Math.min(hpNet, i2.bf.hp_loss);
+    hpNet -= hpBfUsed;
+  }
+  const hpSetOff = hpNet < 0 ? isNew ? 0 : -Math.min(-hpNet, y2.limits.hpLossSetOff) : hpNet;
+  const hpCarry = hpNet < 0 ? -hpNet + hpSetOff : 0;
+  if (isNew && i2.self_occupied_interest) notes.push("New regime: interest on a self-occupied home is not deductible.");
+  if (isNew && hpNet < 0) notes.push("New regime: a house-property loss cannot be set off against other income; it is carried forward.");
+  const b2 = i2.business;
+  let biz = b2.mode === "none" ? 0 : b2.mode === "44ada" ? pct(b2.receipts, 50) : b2.mode === "44ad" ? pct(b2.digital_receipts, 6) + pct(b2.receipts - b2.digital_receipts, 8) : b2.receipts - b2.expenses;
+  let bizBfUsed = 0;
+  if (biz > 0) {
+    bizBfUsed = Math.min(biz, i2.bf.business_loss);
+    biz -= bizBfUsed;
+  }
+  if (b2.mode === "44ada" && b2.receipts > 75e5 * 100) notes.push("44ADA applies only up to \u20B975 lakh of receipts (and only if cash receipts are at most 5%): check you qualify.");
+  if (b2.mode === "44ad" && b2.receipts > 3e7 * 100) notes.push("44AD applies only up to \u20B93 crore of turnover (and only with at most 5% cash): check you qualify.");
+  let other = i2.interest_savings + i2.interest_deposits + i2.interest_other + i2.dividends + i2.other_income;
+  const cg = { stcg_111a: i2.stcg_111a, stcg_other: i2.stcg_other, ltcg_112a: i2.ltcg_112a, ltcg_other: i2.ltcg_other };
+  let stcl = i2.bf.stcl - Math.min(0, cg.stcg_111a) - Math.min(0, cg.stcg_other), ltcl = i2.bf.ltcl - Math.min(0, cg.ltcg_112a) - Math.min(0, cg.ltcg_other);
+  for (const k2 of ["stcg_111a", "stcg_other", "ltcg_112a", "ltcg_other"]) cg[k2] = pos(cg[k2]);
+  const eat = (k2, loss) => {
+    const used = Math.min(cg[k2], loss);
+    cg[k2] -= used;
+    return loss - used;
+  };
+  for (const k2 of ["stcg_other", "stcg_111a", "ltcg_other", "ltcg_112a"]) stcl = eat(k2, stcl);
+  for (const k2 of ["ltcg_other", "ltcg_112a"]) ltcl = eat(k2, ltcl);
+  let bizLoss = biz < 0 ? -biz : 0, hpUse = hpSetOff;
+  biz = Math.max(0, biz);
+  if (bizLoss > 0 && hpUse > 0) {
+    const u2 = Math.min(bizLoss, hpUse);
+    hpUse -= u2;
+    bizLoss -= u2;
+  }
+  if (bizLoss > 0) {
+    const u2 = Math.min(bizLoss, other);
+    other -= u2;
+    bizLoss -= u2;
+  }
+  const bizLossCarry = bizLoss;
+  const normalGross = salary + hpUse + biz + other + cg.stcg_other;
+  const ded = [];
+  const add = (label, amount2, note) => {
+    if (amount2 > 0) ded.push({ label, amount: amount2, note });
+  };
+  const npsCap = i2.basic_da > 0 ? pct(i2.basic_da, y2.limits.employerNps[regime]) : Infinity;
+  add("80CCD(2) employer NPS", Math.min(i2.employer_nps, npsCap), i2.basic_da > 0 ? void 0 : "basic pay not given, so the cap was not checked");
+  if (!isNew) {
+    const senior = ctx2.age !== "under60";
+    add("80C / 80CCC / 80CCD(1)", Math.min(i2.d80c, y2.limits.d80c), `limit ${y2.limits.d80c / 100}`);
+    add("80CCD(1B) extra NPS", Math.min(i2.d80ccd1b, y2.limits.d80ccd1b));
+    add("80D health insurance (self & family)", Math.min(i2.d80d_self, senior ? y2.limits.d80dSelfSenior : y2.limits.d80dSelf));
+    add("80D health insurance (parents)", Math.min(i2.d80d_parents, i2.parents_senior ? y2.limits.d80dParentsSenior : y2.limits.d80dParents));
+    add("80E education-loan interest", i2.d80e);
+    add("80G donations (deductible part)", i2.d80g);
+    add(senior ? "80TTB deposit interest (senior)" : "80TTA savings interest", senior ? Math.min(i2.interest_savings + i2.interest_deposits, y2.limits.d80ttb) : Math.min(i2.interest_savings, y2.limits.d80tta));
+    add("Other Chapter VI-A", i2.d_other, "as entered: check its own limit");
+  } else if (i2.d80c || i2.d80ccd1b || i2.d80d_self || i2.d80d_parents || i2.d80e || i2.d80g || i2.d_other) notes.push("New regime: 80C, 80D, 80E, 80G and the other Chapter VI-A deductions are not allowed (only employer NPS).");
+  const dedTotal = Math.min(ded.reduce((s2, d2) => s2 + d2.amount, 0), pos(normalGross));
+  const normal = pos(normalGross - dedTotal);
+  const a112aFull = cg.ltcg_112a, a112a0 = pos(a112aFull - y2.capitalGains.ltcg112aExempt);
+  const sp = { a111: cg.stcg_111a, a112: cg.ltcg_other, a112a: a112a0 };
+  if (ctx2.resident) {
+    const slabs = isNew ? y2.slabs.new : y2.slabs.old[ctx2.age];
+    let shortfall = pos(slabs[0][0] - normal);
+    for (const k2 of ["a111", "a112", "a112a"]) {
+      const used = Math.min(shortfall, sp[k2]);
+      sp[k2] -= used;
+      shortfall -= used;
+    }
+  }
+  const totalIncomeRaw = normal + cg.stcg_111a + cg.ltcg_other + a112aFull;
+  const totalIncome = tens(totalIncomeRaw);
+  const t2 = taxOn(ctx2, regime, tens(normal), sp, totalIncome);
+  const totalTax = tens(t2.total);
+  const filed = i2.filing_date ?? ctx2.today;
+  const due = b2.mode === "none" ? y2.deadlines.individual : y2.deadlines.business;
+  const exemptLimit = (isNew ? y2.slabs.new : y2.slabs.old[ctx2.resident ? ctx2.age : "under60"])[0][0];
+  const late = filed > due;
+  const fee = late && totalIncome > exemptLimit ? totalIncome <= y2.lateFee234F.ifIncomeUpTo ? y2.lateFee234F.reduced : y2.lateFee234F.amount : 0;
+  const netOfTds = pos(totalTax - i2.tds - i2.tcs);
+  const int234a = late ? pct(pos(netOfTds - i2.advance_tax), 1) * monthsLate(due, filed) : 0;
+  const m234b = (() => {
+    const [fy, fm] = filed.split("-").map(Number), ay = Number(y2.ay.slice(0, 4));
+    return Math.max(0, (fy - ay) * 12 + (fm - 4) + 1);
+  })();
+  const int234b = netOfTds >= 1e6 && i2.advance_tax < pct(netOfTds, 90) ? pct(netOfTds - i2.advance_tax, 1) * m234b : 0;
+  if (late) notes.push(`Filing after ${due} adds a late fee and interest (shown as estimates). The last date for a belated return is ${y2.deadlines.belated}.`);
+  if (int234b) notes.push("Interest under 234B/234A is an estimate: 234C (late instalments) is not modelled. Check the portal\u2019s own computation.");
+  if (i2.agricultural_income > 0) notes.push("Agricultural income is not included in this computation (partial integration is not modelled).");
+  if (!ctx2.resident) notes.push("Non-resident: no 87A rebate, no age-based exemption and other special rules apply. Treat this as a rough guide and use a CA.");
+  if (hpCarry || bizLossCarry || stcl || ltcl) notes.push("Losses that could not be set off this year are shown as carried forward (valid for 8 years if the return is filed on time).");
+  const paid = i2.tds + i2.tcs + i2.advance_tax + i2.self_assessment;
+  return {
+    regime,
+    salary: { gross: base, exemptions, standard_deduction: std, professional_tax: profTax, income: salary },
+    house_property: { self_occupied: selfOcc, let_out: letOut, net: hpNet, set_off: hpUse, carried_forward: hpCarry },
+    business: { income: biz, set_off_b_f: bizBfUsed, loss_carried_forward: bizLossCarry + pos(i2.bf.business_loss - bizBfUsed) },
+    other_sources: other,
+    capital_gains: { ...cg, stcl_carried_forward: stcl, ltcl_carried_forward: ltcl },
+    gross_total_income: normalGross,
+    deductions: ded,
+    deductions_total: dedTotal,
+    normal_income: normal,
+    total_income: totalIncome,
+    tax: { slab: t2.slab, special_111a: t2.special111a, special_112a: t2.special112a, special_112: t2.special112, rebate_87a: t2.rebate, marginal_relief_87a: t2.relief87, surcharge: t2.surcharge, cess: t2.cess, total: totalTax },
+    late_fee_234f: fee,
+    interest_234a: int234a,
+    interest_234b: int234b,
+    taxes_paid: paid,
+    net_payable: totalTax + fee + int234a + int234b - paid,
+    notes
+  };
+}
+function compareRegimes(i2, ctx2, pref = "auto") {
+  const nw = computeRegime(i2, ctx2, "new"), od = computeRegime(i2, ctx2, "old");
+  const cost = (r2) => r2.tax.total + r2.late_fee_234f + r2.interest_234a + r2.interest_234b;
+  const recommended = cost(od) < cost(nw) ? "old" : "new";
+  const chosen = pref === "auto" ? recommended : pref;
+  const saving = Math.abs(cost(nw) - cost(od));
+  const reason = saving === 0 ? "Both regimes cost the same for you." : `${recommended === "new" ? "New" : "Old"} regime costs you less (by ${Math.round(saving / 100).toLocaleString("en-IN")} rupees).`;
+  if (i2.business.mode !== "none") (recommended === "old" ? od : nw).notes.push("You have business/professional income: switching back to the old regime from the new one is allowed only once (Form 10-IEA) and must be filed by the due date.");
+  return { year: ctx2.year, new: nw, old: od, recommended, chosen, saving, reason };
+}
+function makeCtx(fy, profile, today) {
+  const year = TAX_YEARS[fy];
+  if (!year) throw new Error(`Tax rules for FY ${fy} are not available yet.`);
+  return { year, age: profile.age_group, resident: profile.residency === "resident", today };
+}
+function whatIf(i2, ctx2, regime, patch) {
+  const a2 = computeRegime(i2, ctx2, regime), b2 = computeRegime({ ...i2, ...patch }, ctx2, regime);
+  return a2.tax.total - b2.tax.total;
+}
+
+// ../shared/core/tax/itr.ts
+var LIMIT_50L = rs2(5e6);
+var CG_112A_LIMIT = rs2(125e3);
+var AGRI_LIMIT = rs2(5e3);
+function suggestForm(i2, profile, r2) {
+  const resident = profile.residency === "resident";
+  const mode = i2.business.mode, presumptive = mode === "44ada" || mode === "44ad", hasBusiness = mode !== "none";
+  const houses = i2.let_out.length + (i2.self_occupied_interest > 0 ? 1 : 0);
+  const cgAny = [i2.stcg_111a, i2.stcg_other, i2.ltcg_112a, i2.ltcg_other].some((x2) => x2 !== 0);
+  const cgOnly112aSmall = i2.stcg_111a === 0 && i2.stcg_other === 0 && i2.ltcg_other === 0 && i2.ltcg_112a >= 0 && i2.ltcg_112a <= CG_112A_LIMIT;
+  const bf = Object.values(i2.bf).some((x2) => x2 > 0);
+  const common = [];
+  if (!resident) common.push("you are a non-resident");
+  if (r2.total_income > LIMIT_50L) common.push("total income is above \u20B950 lakh");
+  if (houses > 2) common.push("you have more than two house properties");
+  if (cgAny && !cgOnly112aSmall) common.push("you have capital gains beyond listed-share long-term gains of \u20B91.25 lakh");
+  if (bf) common.push("you are carrying forward losses from earlier years");
+  if (i2.flags.director) common.push("you are a director of a company");
+  if (i2.flags.unlisted_shares) common.push("you hold unlisted equity shares");
+  if (i2.flags.foreign_assets) common.push("you have foreign assets or foreign income");
+  if (i2.agricultural_income > AGRI_LIMIT) common.push("agricultural income is above \u20B95,000");
+  const why1 = [...common];
+  if (hasBusiness) why1.push("you have business or professional income");
+  const why4 = [...common];
+  if (hasBusiness && !presumptive) why4.push("your business income is computed from books (not presumptive 44AD/44ADA)");
+  if (!hasBusiness) why4.push("you have no presumptive business income");
+  let form, reasons;
+  if (hasBusiness) {
+    if (presumptive && !why4.length) {
+      form = "ITR-4";
+      reasons = ["Resident, total income up to \u20B950 lakh, with presumptive income under 44AD/44ADA (plus any salary, up to two houses and other income)."];
+    } else {
+      form = "ITR-3";
+      reasons = ["You have business or professional income that ITR-4 cannot take" + (why4.length ? `: ${why4.filter((x2) => x2 !== "you have no presumptive business income").join("; ")}.` : ".")];
+    }
+  } else if (!why1.length) {
+    form = "ITR-1";
+    reasons = ["Resident, total income up to \u20B950 lakh, from salary or pension, up to two house properties and other sources (interest etc.)."];
+  } else {
+    form = "ITR-2";
+    reasons = [`ITR-1 is not available because ${why1.join("; ")}.`, "ITR-2 is for individuals with no business or professional income."];
+  }
+  const ruledOut = [];
+  if (form !== "ITR-1") ruledOut.push({ form: "ITR-1", because: why1 });
+  if (form === "ITR-3" || form === "ITR-2") {
+    if (hasBusiness) ruledOut.push({ form: "ITR-4", because: why4 });
+  }
+  if (form === "ITR-3" || form === "ITR-4") ruledOut.push({ form: "ITR-2", because: ["you have business or professional income"] });
+  const checks = [
+    "Open your AIS and Form 26AS on the portal and make sure every interest, dividend, sale and TDS entry there matches what you entered. Mismatches are the commonest cause of notices.",
+    "Compare your salary and TDS with your Form 16 (Part A and Part B) and with the TDS shown in 26AS.",
+    "Make sure the bank account where you want any refund is pre-validated on the portal.",
+    "After submitting, e-verify within 30 days (Aadhaar OTP or net banking); an unverified return is treated as not filed.",
+    "Choose the same regime on the portal that you compared here. Business/professional income: opting out of the new regime needs Form 10-IEA."
+  ];
+  if (form === "ITR-2" || form === "ITR-3") checks.push("Fill Schedule CG from your broker/fund statements (Schedule 112A needs scrip-wise details) and Schedule AL if your income is above \u20B91 crore.");
+  if (form === "ITR-3" || form === "ITR-4") checks.push("Presumptive income needs your GST turnover/receipts and bank-account details; check you meet the 44AD/44ADA turnover and cash-receipt limits.");
+  return { form, reasons, ruledOut, checks };
+}
+function buildWorksheet(i2, r2, form, fy, ay) {
+  const S2 = [];
+  const sec = (schedule, title2, rows) => {
+    const kept = rows.filter((x2) => x2.amount !== 0 || x2.text);
+    if (kept.length) S2.push({ schedule, title: title2, rows: kept });
+  };
+  sec("Schedule S", "Salary / pension", [
+    { label: "Gross salary and pension", amount: r2.salary.gross },
+    { label: "Less: allowances exempt under section 10 (HRA etc.)", amount: -r2.salary.exemptions, note: r2.regime === "new" ? "not allowed in the new regime" : void 0 },
+    { label: "Less: standard deduction, section 16(ia)", amount: -r2.salary.standard_deduction },
+    { label: "Less: professional tax, section 16(iii)", amount: -r2.salary.professional_tax },
+    { label: "Income chargeable under Salaries", amount: r2.salary.income }
+  ]);
+  sec("Schedule HP", "House property", [
+    { label: "Interest on self-occupied home (limited to \u20B92 lakh)", amount: r2.house_property.self_occupied },
+    { label: "Income / (loss) from let-out property: rent less municipal tax, 30% standard deduction, interest", amount: r2.house_property.let_out },
+    { label: "Income from house property set off in this year", amount: r2.house_property.set_off },
+    { label: "House-property loss to carry forward", amount: r2.house_property.carried_forward }
+  ]);
+  const b2 = i2.business;
+  sec("Schedule BP", "Business or profession", [
+    b2.mode !== "none" ? { label: b2.mode === "44ada" ? "Presumptive income, section 44ADA (50% of gross receipts)" : b2.mode === "44ad" ? "Presumptive income, section 44AD (6% digital / 8% other)" : "Net profit from books", amount: r2.business.income } : { label: "", amount: 0 },
+    { label: "Gross receipts / turnover", amount: b2.receipts },
+    { label: "Brought-forward business loss used", amount: -r2.business.set_off_b_f },
+    { label: "Business loss to carry forward", amount: r2.business.loss_carried_forward }
+  ].filter((x2) => x2.label));
+  sec("Schedule CG", "Capital gains (after setting off losses)", [
+    { label: "Short-term gain on listed shares/equity funds (section 111A, taxed at 20%)", amount: r2.capital_gains.stcg_111a },
+    { label: "Short-term gain, other assets (taxed at slab rates)", amount: r2.capital_gains.stcg_other },
+    { label: "Long-term gain on listed shares/equity funds (section 112A, 12.5% above \u20B91.25 lakh)", amount: r2.capital_gains.ltcg_112a },
+    { label: "Long-term gain, other assets (section 112, 12.5%)", amount: r2.capital_gains.ltcg_other },
+    { label: "Short-term loss to carry forward", amount: r2.capital_gains.stcl_carried_forward },
+    { label: "Long-term loss to carry forward", amount: r2.capital_gains.ltcl_carried_forward }
+  ]);
+  sec("Schedule OS", "Income from other sources", [
+    { label: "Interest from savings account", amount: i2.interest_savings },
+    { label: "Interest from deposits (FD/RD)", amount: i2.interest_deposits },
+    { label: "Other interest", amount: i2.interest_other },
+    { label: "Dividends", amount: i2.dividends },
+    { label: "Other income", amount: i2.other_income },
+    { label: "Total other sources (after any business-loss set-off)", amount: r2.other_sources }
+  ]);
+  sec("Schedule VI-A", "Deductions", [...r2.deductions.map((d2) => ({ label: d2.label, amount: d2.amount, note: d2.note })), { label: "Total deductions allowed", amount: r2.deductions_total }]);
+  sec("Part B-TI", "Total income", [
+    { label: "Gross total income at normal rates", amount: r2.gross_total_income },
+    { label: "Less: deductions (Chapter VI-A)", amount: -r2.deductions_total },
+    { label: "Income taxable at normal rates", amount: r2.normal_income },
+    { label: "Special-rate gains: 111A + 112A + 112", amount: r2.capital_gains.stcg_111a + r2.capital_gains.ltcg_112a + r2.capital_gains.ltcg_other },
+    { label: "TOTAL INCOME (rounded to \u20B910)", amount: r2.total_income }
+  ]);
+  sec("Part B-TTI", "Tax computation", [
+    { label: `Tax at slab rates (${r2.regime} regime)`, amount: r2.tax.slab },
+    { label: "Tax on 111A gains (20%)", amount: r2.tax.special_111a },
+    { label: "Tax on 112A gains (12.5%)", amount: r2.tax.special_112a },
+    { label: "Tax on 112 gains (12.5%)", amount: r2.tax.special_112 },
+    { label: "Less: rebate under section 87A", amount: -r2.tax.rebate_87a },
+    { label: "Less: marginal relief on the 87A limit", amount: -r2.tax.marginal_relief_87a },
+    { label: "Surcharge (after marginal relief)", amount: r2.tax.surcharge },
+    { label: "Health and education cess (4%)", amount: r2.tax.cess },
+    { label: "TOTAL TAX LIABILITY", amount: r2.tax.total },
+    { label: "Fee under section 234F (estimate)", amount: r2.late_fee_234f },
+    { label: "Interest under 234A (estimate)", amount: r2.interest_234a },
+    { label: "Interest under 234B (estimate)", amount: r2.interest_234b }
+  ]);
+  sec("Schedules TDS / TCS / IT", "Tax already paid", [
+    { label: "TDS deducted (Schedule TDS1/TDS2: match your 26AS)", amount: i2.tds },
+    { label: "TCS collected", amount: i2.tcs },
+    { label: "Advance tax paid (Schedule IT)", amount: i2.advance_tax },
+    { label: "Self-assessment tax paid (Schedule IT)", amount: i2.self_assessment },
+    { label: "Total taxes paid", amount: r2.taxes_paid }
+  ]);
+  sec("Result", r2.net_payable > 0 ? "Tax payable" : "Refund due", [{ label: r2.net_payable > 0 ? "Net tax payable (pay before filing)" : "Refund expected (before any interest the department adds)", amount: Math.abs(r2.net_payable) }, ...r2.notes.map((n2) => ({ label: "Note", text: n2 }))]);
+  return {
+    fy,
+    ay,
+    form: form.form,
+    regime: r2.regime,
+    sections: S2,
+    checks: form.checks,
+    disclaimer: "Prepared by Personal CA as a worksheet to help you fill the return. It is not professional advice and has not been audited. Check every figure against Form 16, AIS/26AS and the portal\u2019s own computation before you file; use a practising Chartered Accountant for audits, certifications, notices or anything unusual."
+  };
+}
+
+// ../shared/core/tax/data.ts
+var MAX = 1e13;
+var SIGNED = /* @__PURE__ */ new Set(["stcg_111a", "stcg_other", "ltcg_112a", "ltcg_other"]);
+var NUMERIC = [
+  "salary_gross",
+  "hra_received",
+  "basic_da",
+  "rent_paid",
+  "other_exempt_allowances",
+  "professional_tax",
+  "pension",
+  "employer_nps",
+  "self_occupied_interest",
+  "interest_savings",
+  "interest_deposits",
+  "interest_other",
+  "dividends",
+  "other_income",
+  "stcg_111a",
+  "stcg_other",
+  "ltcg_112a",
+  "ltcg_other",
+  "d80c",
+  "d80ccd1b",
+  "d80d_self",
+  "d80d_parents",
+  "d80e",
+  "d80g",
+  "d_other",
+  "tds",
+  "tcs",
+  "advance_tax",
+  "self_assessment",
+  "agricultural_income"
+];
+function normaliseTaxInput(raw) {
+  const out = emptyInput();
+  if (!raw || typeof raw !== "object") return out;
+  const r2 = raw;
+  const num = (v2, signed = false) => typeof v2 === "number" && Number.isFinite(v2) ? Math.max(signed ? -MAX : 0, Math.min(MAX, Math.round(v2))) : 0;
+  for (const k2 of NUMERIC) out[k2] = num(r2[k2], SIGNED.has(k2));
+  out.metro = r2.metro === true;
+  out.parents_senior = r2.parents_senior === true;
+  const b2 = r2.business ?? {};
+  out.business = { ...emptyBusiness(), mode: ["none", "44ada", "44ad", "books"].includes(b2.mode) ? b2.mode : "none", receipts: num(b2.receipts), digital_receipts: Math.min(num(b2.digital_receipts), num(b2.receipts)), expenses: num(b2.expenses) };
+  out.bf = { stcl: num(r2.bf?.stcl), ltcl: num(r2.bf?.ltcl), business_loss: num(r2.bf?.business_loss), hp_loss: num(r2.bf?.hp_loss) };
+  out.flags = { director: r2.flags?.director === true, unlisted_shares: r2.flags?.unlisted_shares === true, foreign_assets: r2.flags?.foreign_assets === true };
+  out.let_out = Array.isArray(r2.let_out) ? r2.let_out.slice(0, 10).map((p2) => ({ rent: num(p2?.rent), municipal_tax: num(p2?.municipal_tax), interest: num(p2?.interest) })) : [];
+  out.filing_date = typeof r2.filing_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r2.filing_date) ? r2.filing_date : null;
+  return out;
+}
+function getTaxInput(db, fy) {
+  const row = db.prepare("SELECT json FROM tax_data WHERE fy = ?").get(fy);
+  try {
+    return normaliseTaxInput(row ? JSON.parse(row.json) : null);
+  } catch {
+    return emptyInput();
+  }
+}
+function saveTaxInput(db, fy, input2) {
+  if (!/^\d{4}-\d{2}$/.test(fy)) throw new Error("Bad financial year.");
+  const clean = normaliseTaxInput(input2);
+  db.prepare("INSERT INTO tax_data (fy, json) VALUES (?, ?) ON CONFLICT(fy) DO UPDATE SET json = excluded.json").run(fy, JSON.stringify(clean));
+  return clean;
+}
+var daysBetween = (a2, b2) => Math.round((Date.UTC(+b2.slice(0, 4), +b2.slice(5, 7) - 1, +b2.slice(8, 10)) - Date.UTC(+a2.slice(0, 4), +a2.slice(5, 7) - 1, +a2.slice(8, 10))) / 864e5);
+function summarise(input2, profile, fy, today, entered) {
+  const base = { fy, years: SUPPORTED_FYS, input: input2, entered };
+  const year = TAX_YEARS[fy];
+  if (!year) return { ...base, supported: false, message: `Tax rules for FY ${fy} are not built in yet. This app handles ${SUPPORTED_FYS.map((y2) => `FY ${y2}`).join(", ")}.` };
+  const ctx2 = makeCtx(fy, profile, today);
+  const comparison = compareRegimes(input2, ctx2, profile.regime_pref);
+  const form = suggestForm(input2, profile, comparison[comparison.chosen]);
+  const due = input2.business.mode === "none" ? year.deadlines.individual : year.deadlines.business;
+  return {
+    ...base,
+    supported: true,
+    label: year.label,
+    ay: year.ay,
+    comparison,
+    form,
+    worksheet: buildWorksheet(input2, comparison[comparison.chosen], form, fy, year.ay),
+    deadlines: { due, belated: year.deadlines.belated, daysToDue: daysBetween(today, due), daysToBelated: daysBetween(today, year.deadlines.belated), dueIsPassed: today > due, belatedIsPassed: today > year.deadlines.belated }
+  };
+}
+function taxSummary(db, fy, today) {
+  const row = db.prepare("SELECT 1 AS x FROM tax_data WHERE fy = ?").get(fy);
+  return summarise(getTaxInput(db, fy), getProfile(db), fy, today, !!row);
+}
+
 // src/ask/tools.ts
 var inr = (paise2) => Math.round(paise2) / 100;
 var month = external_exports.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "month must look like 2026-09");
@@ -136380,7 +136900,9 @@ var SCHEMAS = {
   monthly_report: external_exports.object({ month: month.optional() }),
   subscriptions: external_exports.object({}),
   bills: external_exports.object({}),
-  friends: external_exports.object({})
+  friends: external_exports.object({}),
+  tax_summary: external_exports.object({ fy: external_exports.string().regex(new RegExp("^[0-9]{4}-[0-9]{2}$")).optional() }),
+  tax_savings: external_exports.object({ fy: external_exports.string().regex(new RegExp("^[0-9]{4}-[0-9]{2}$")).optional(), extra_80c_inr: external_exports.number().min(0).max(1e7).optional(), extra_nps_80ccd1b_inr: external_exports.number().min(0).max(1e7).optional(), extra_80d_inr: external_exports.number().min(0).max(1e7).optional() })
 };
 var obj = (properties) => ({ type: "object", properties, additionalProperties: false });
 var M2 = { type: "string", description: "Month as YYYY-MM. Defaults to the current month." };
@@ -136415,6 +136937,8 @@ var TOOL_DEFS = [
   { name: "monthly_report", description: "The month at a glance: income, spent, saved, needs/wants/waste split vs the user's targets, top leaks, and change vs last month.", input_schema: obj({ month: M2 }) },
   { name: "subscriptions", description: "Recurring charges found in the user's spending, with next renewal date and yearly cost.", input_schema: obj({}) },
   { name: "bills", description: "The user's bills and EMIs with due dates and overdue/due-soon status.", input_schema: obj({}) },
+  { name: "tax_summary", description: "The user's income-tax picture for a financial year (default: the year whose return is being filed now): income by head, tax under the new and old regime, which is cheaper, the ITR form that fits, taxes already paid, refund or amount payable, and the filing deadlines. Figures come from the app's own rules; quote them, never recompute. If nothing was entered yet, says so.", input_schema: obj({ fy: { type: "string", description: "Financial year like 2025-26." } }) },
+  { name: "tax_savings", description: "How much less tax the user would pay (old regime) if they put more into 80C, NPS (80CCD(1B)) or health insurance (80D). The saving is computed by re-running the tax rules.", input_schema: obj({ fy: { type: "string" }, extra_80c_inr: { type: "number" }, extra_nps_80ccd1b_inr: { type: "number" }, extra_80d_inr: { type: "number" } }) },
   { name: "friends", description: "Money friends owe the user, and money the user owes friends (split spends and IOUs).", input_schema: obj({}) }
 ];
 function runTool(db, name, input2, today) {
@@ -136533,6 +137057,44 @@ function runTool(db, name, input2, today) {
         bills: bills.map((b2) => ({ name: b2.name, kind: b2.kind, amount_inr: inr(b2.amount_paise), next_due: b2.next_due, days_until_due: b2.days_until, status: b2.status, instalments_left: b2.installments_left }))
       };
     }
+    case "tax_summary": {
+      const fy = a2.fy ?? returnYearFor(today), s2 = taxSummary(db, fy, today);
+      if (!s2.supported) return { supported: false, message: s2.message };
+      if (!s2.entered) return { supported: true, fy, entered: false, message: "The user has not entered any tax details for this year yet. Suggest opening Money > Tax." };
+      const c2 = s2.comparison, pick2 = c2[c2.chosen], R2 = (p2) => inr(p2);
+      return {
+        fy,
+        label: s2.label,
+        entered: true,
+        recommended_regime: c2.recommended,
+        regime_used: c2.chosen,
+        why: c2.reason,
+        itr_form: s2.form.form,
+        form_reasons: s2.form.reasons,
+        new_regime: { total_income_inr: R2(c2.new.total_income), tax_inr: R2(c2.new.tax.total), net_payable_inr: R2(c2.new.net_payable) },
+        old_regime: { total_income_inr: R2(c2.old.total_income), tax_inr: R2(c2.old.tax.total), net_payable_inr: R2(c2.old.net_payable) },
+        taxes_paid_inr: R2(pick2.taxes_paid),
+        refund_or_payable: pick2.net_payable < 0 ? { refund_inr: R2(-pick2.net_payable) } : { payable_inr: R2(pick2.net_payable) },
+        late_fee_and_interest_estimates_inr: R2(pick2.late_fee_234f + pick2.interest_234a + pick2.interest_234b),
+        notes: pick2.notes,
+        deadlines: { due: s2.deadlines.due, belated_last_date: s2.deadlines.belated, due_date_passed: s2.deadlines.dueIsPassed, belated_window_open: !s2.deadlines.belatedIsPassed },
+        reminder: "These are estimates to help prepare the return, not professional advice. The user files and e-verifies on the income-tax portal."
+      };
+    }
+    case "tax_savings": {
+      const fy = a2.fy ?? returnYearFor(today), s2 = taxSummary(db, fy, today);
+      if (!s2.supported || !s2.entered) return { message: s2.supported ? "No tax details entered for this year yet." : s2.message };
+      const profile = getProfile(db), input3 = getTaxInput(db, fy), ctx2 = makeCtx(fy, profile, today), p2 = (x2) => Math.round((x2 ?? 0) * 100);
+      const patch = { d80c: input3.d80c + p2(a2.extra_80c_inr), d80ccd1b: input3.d80ccd1b + p2(a2.extra_nps_80ccd1b_inr), d80d_self: input3.d80d_self + p2(a2.extra_80d_inr) };
+      const cmp = compareRegimes(input3, ctx2, "auto");
+      return {
+        regime_note: "These deductions only reduce tax in the OLD regime.",
+        old_regime_saving_inr: inr(whatIf(input3, ctx2, "old", patch)),
+        recommended_regime_today: cmp.recommended,
+        old_vs_new_after_change: inr(compareRegimes({ ...input3, ...patch }, ctx2, "auto").saving),
+        already_claimed_inr: { section_80c: inr(input3.d80c), nps_80ccd1b: inr(input3.d80ccd1b), health_80d_self: inr(input3.d80d_self) }
+      };
+    }
     case "friends": {
       const s2 = iouSummary(db);
       return {
@@ -136556,6 +137118,7 @@ How you work:
 - Call several tools in one go when a question needs them. If a tool returns nothing, say there's no data for that period instead of guessing.
 - You only see merchant names, amounts, dates and categories. Never ask the user for bank details, UPI IDs or account numbers.
 - You explain how much to save and which habits to change. You do not recommend specific funds, stocks or investment products (that is regulated advice); if asked, say you can't, and point to the savings target instead.
+- Income tax: for questions about the user's tax, ITR, regime, deductions, refund or deadlines, call tax_summary (and tax_savings for "what if I invest more"). Quote its figures exactly; never work out tax yourself. If it says nothing was entered, point the user to Money > Tax. You may explain how the rules work in general terms (old vs new regime, 80C/80D, which ITR form, why a notice happens), but you are not a Chartered Accountant: say so when it matters, never promise a refund or a saving as certain, never help hide income or invent expenses, and tell the user to see a practising CA for audits, notices, scrutiny, foreign income or anything unusual. You cannot file the return: the user files and e-verifies it on the income-tax portal themselves.
 - Tone: warm, upbeat, concise, never shaming. 2-5 short sentences or a short list. Plain text only (no markdown headings, tables or bold); a light emoji is fine.`;
 var textOf = (content) => content.filter((b2) => b2?.type === "text").map((b2) => b2.text).join("\n").trim();
 async function askCa(db, question, history, o2) {
@@ -136727,7 +137290,7 @@ var method = external_exports.enum(["upi", "card", "cash", "bnpl", "netbanking"]
 var bucket = external_exports.enum(["need", "want", "waste", "ignore"]);
 var day = external_exports.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/);
 var month2 = external_exports.string().regex(/^\d{4}-\d{2}$/);
-var pct = external_exports.number().min(0).max(100);
+var pct2 = external_exports.number().min(0).max(100);
 var newTx = external_exports.object({
   amount_paise: money,
   merchant_raw: external_exports.string().max(200).optional(),
@@ -136738,9 +137301,9 @@ var newTx = external_exports.object({
   occurred_at: day.optional()
 });
 var settings = external_exports.object({
-  savings_target_pct: pct,
-  need_target_pct: pct,
-  want_target_pct: pct,
+  savings_target_pct: pct2,
+  need_target_pct: pct2,
+  want_target_pct: pct2,
   fixed_needs_paise: external_exports.number().int().min(0),
   income_irregular: external_exports.union([external_exports.literal(0), external_exports.literal(1)]),
   emergency_saved_paise: external_exports.number().int().min(0),
@@ -136846,6 +137409,12 @@ function createApp(db, opts = {}) {
   app.get("/api/suggest", (q2, r2) => {
     const h2 = q2.query.hour === void 0 ? void 0 : Number(q2.query.hour);
     r2.json(suggest(db, String(q2.query.text ?? ""), h2));
+  });
+  app.get("/api/tax/:fy", (q2, r2) => {
+    r2.json(taxSummary(db, String(q2.params.fy), today()));
+  });
+  app.put("/api/tax/:fy", (q2, r2) => {
+    r2.json(saveTaxInput(db, String(q2.params.fy), q2.body));
   });
   app.put("/api/profile", (q2, r2) => {
     const b2 = external_exports.object({

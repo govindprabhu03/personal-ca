@@ -4,6 +4,7 @@
 // Actions with no `local` need the server (import, backup, restore, erase, Ask your CA): they run there first, then the phone refreshes.
 import type { DB } from './core/schema';
 import * as svc from './core/service';
+import { saveTaxInput } from './core/tax/data';
 import { formatRupees } from './money';
 import type { Bucket, PaymentMethod, Profile, Settings } from './types';
 
@@ -38,6 +39,7 @@ export const COMMANDS = {
     label: (a) => `Income · ${formatRupees(a.amount_paise)}`, http: (a) => ({ method: 'POST', path: '/income', body: a }), local: (db, a) => svc.addIncome(db, a),
   }),
   deleteIncome: c<{ id: number }>({ label: () => 'Delete income', http: (a) => ({ method: 'DELETE', path: `/income/${a.id}` }), local: (db, a) => svc.deleteIncome(db, a.id) }),
+  saveTax: c<{ fy: string; input: unknown }>({ label: (a) => `Tax details FY ${a.fy}`, http: (a) => ({ method: 'PUT', path: `/tax/${a.fy}`, body: a.input }), local: (db, a) => saveTaxInput(db, a.fy, a.input) }),
   saveProfile: c<Partial<Profile>>({ label: () => 'Tax profile', http: (a) => ({ method: 'PUT', path: '/profile', body: a }), local: (db, a) => svc.updateProfile(db, a) }),
   updateSettings: c<Partial<Settings>>({ label: () => 'Targets', http: (a) => ({ method: 'PUT', path: '/settings', body: a }), local: (db, a) => svc.updateSettings(db, a) }),
   addAccount: c<{ kind: string; name: string; opening_paise: number }>({

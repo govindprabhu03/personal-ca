@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { DB } from './db';
 import { monthOf, todayStr } from './engine/dates';
 import { askCa, LlmClient } from './ask/agent';
+import { saveTaxInput, taxSummary } from '../../shared/core/tax/data';
 import { createLockout } from './lockout';
 import { Logger, quietLogger } from './log';
 import * as svc from './service';
@@ -123,6 +124,8 @@ export function createApp(db: DB, opts: { token?: string; today?: () => string; 
     const h = q.query.hour === undefined ? undefined : Number(q.query.hour);
     r.json(svc.suggest(db, String(q.query.text ?? ''), h));
   });
+  app.get('/api/tax/:fy', (q, r) => { r.json(taxSummary(db, String(q.params.fy), today())); });
+  app.put('/api/tax/:fy', (q, r) => { r.json(saveTaxInput(db, String(q.params.fy), q.body)); });
   app.put('/api/profile', (q, r) => {
     const b = z.object({ taxpayer_types: z.array(z.enum(['salaried', 'professional', 'business', 'investor', 'pensioner', 'other'])).max(6), residency: z.enum(['resident', 'nri']),
       age_group: z.enum(['under60', 'senior', 'super_senior']), regime_pref: z.enum(['auto', 'new', 'old']), onboarded: z.boolean() }).partial().parse(q.body);

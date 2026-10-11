@@ -7,6 +7,8 @@ import { isLocalId } from '../../shared/core/localdb';
 import { nowLocal, todayLocal } from '../../shared/time';
 import type { Bill, Bootstrap, Bucket, Flag, Goal, ImportResult, IncomeEntry, IouSummary, MonthlyReport, PaymentMethod, Profile, SafeToSpend, SavingsPlan, Settings, Subscription, Suggestion, Tx, Wishlist, Account } from '../../shared/types';
 import { getSync } from './offline';
+import { taxSummary, TaxSummary } from '../../shared/core/tax/data';
+import type { TaxInput } from '../../shared/core/tax/compute';
 
 const read = <T>(f: (db: DB) => T): Promise<T> => Promise.resolve().then(() => f(getSync().db));
 const run = <T>(cmd: Parameters<ReturnType<typeof getSync>['run']>[0], args: unknown) => getSync().run<T>(cmd, args);
@@ -25,6 +27,8 @@ export const api = {
   suggest: (text: string, hour: number): Promise<Suggestion> => read((db) => svc.suggest(db, text, hour)),
   updateSettings: (p: Partial<Settings>) => run<Settings>('updateSettings', p),
   saveProfile: (p: Partial<Profile>) => run<Profile>('saveProfile', p),
+  tax: (fy: string): Promise<TaxSummary> => read((db) => taxSummary(db, fy, todayLocal())),
+  saveTax: (fy: string, input: TaxInput) => run('saveTax', { fy, input }),
   addAccount: (kind: string, name: string, opening_paise: number) => run<Account[]>('addAccount', { kind, name, opening_paise }),
   addIncome: (b: { amount_paise: number; source?: string; is_regular?: boolean; account_id?: number }) => run<IncomeEntry>('addIncome', { ...b, received_at: nowLocal() }),
   income: (month: string): Promise<IncomeEntry[]> => read((db) => svc.listIncome(db, month)),

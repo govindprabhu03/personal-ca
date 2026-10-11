@@ -7,6 +7,9 @@ import { DETECTOR_LABEL } from '../../../shared/labels';
 import type { DB } from '../db';
 import { addDays, monthOf } from '../engine/dates';
 import * as svc from '../service';
+import { getTaxInput, taxSummary } from '../../../shared/core/tax/data';
+import { compareRegimes, makeCtx, whatIf } from '../../../shared/core/tax/compute';
+import { returnYearFor } from '../../../shared/core/tax/rules';
 
 const inr = (paise: number) => Math.round(paise) / 100; // rupees with 2 decimals; the model quotes these, it never computes them
 const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'month must look like 2026-09');
@@ -23,6 +26,8 @@ const SCHEMAS = {
   subscriptions: z.object({}),
   bills: z.object({}),
   friends: z.object({}),
+  tax_summary: z.object({ fy: z.string().regex(new RegExp('^[0-9]{4}-[0-9]{2}$')).optional() }),
+  tax_savings: z.object({ fy: z.string().regex(new RegExp('^[0-9]{4}-[0-9]{2}$')).optional(), extra_80c_inr: z.number().min(0).max(10000000).optional(), extra_nps_80ccd1b_inr: z.number().min(0).max(10000000).optional(), extra_80d_inr: z.number().min(0).max(10000000).optional() }),
 } as const;
 export type ToolName = keyof typeof SCHEMAS;
 
@@ -43,6 +48,8 @@ export const TOOL_DEFS = [
   { name: 'monthly_report', description: 'The month at a glance: income, spent, saved, needs/wants/waste split vs the user\'s targets, top leaks, and change vs last month.', input_schema: obj({ month: M }) },
   { name: 'subscriptions', description: 'Recurring charges found in the user\'s spending, with next renewal date and yearly cost.', input_schema: obj({}) },
   { name: 'bills', description: 'The user\'s bills and EMIs with due dates and overdue/due-soon status.', input_schema: obj({}) },
+  { name: 'tax_summary', description: "The user's income-tax picture for a financial year (default: the year whose return is being filed now): income by head, tax under the new and old regime, which is cheaper, the ITR form that fits, taxes already paid, refund or amount payable, and the filing deadlines. Figures come from the app's own rules; quote them, never recompute. If nothing was entered yet, says so.", input_schema: obj({ fy: { type: 'string', description: 'Financial year like 2025-26.' } }) },
+  { name: 'tax_savings', description: 'How much less tax the user would pay (old regime) if they put more into 80C, NPS (80CCD(1B)) or health insurance (80D). The saving is computed by re-running the tax rules.', input_schema: obj({ fy: { type: 'string' }, extra_80c_inr: { type: 'number' }, extra_nps_80ccd1b_inr: { type: 'number' }, extra_80d_inr: { type: 'number' } }) },
   { name: 'friends', description: 'Money friends owe the user, and money the user owes friends (split spends and IOUs).', input_schema: obj({}) },
 ];
 
@@ -114,6 +121,28 @@ export function runTool(db: DB, name: string, input: unknown, today: string): un
       const bills = svc.listBills(db, today);
       return { monthly_total_inr: inr(bills.reduce((t, b) => t + b.amount_paise, 0)),
         bills: bills.map((b) => ({ name: b.name, kind: b.kind, amount_inr: inr(b.amount_paise), next_due: b.next_due, days_until_due: b.days_until, status: b.status, instalments_left: b.installments_left })) };
+    }
+    case 'tax_summary': {
+      const fy: string = a.fy ?? returnYearFor(today), s = taxSummary(db, fy, today);
+      if (!s.supported) return { supported: false, message: s.message };
+      if (!s.entered) return { supported: true, fy, entered: false, message: 'The user has not entered any tax details for this year yet. Suggest opening Money > Tax.' };
+      const c = s.comparison!, pick = c[c.chosen], R = (p: number) => inr(p);
+      return { fy, label: s.label, entered: true, recommended_regime: c.recommended, regime_used: c.chosen, why: c.reason, itr_form: s.form!.form, form_reasons: s.form!.reasons,
+        new_regime: { total_income_inr: R(c.new.total_income), tax_inr: R(c.new.tax.total), net_payable_inr: R(c.new.net_payable) },
+        old_regime: { total_income_inr: R(c.old.total_income), tax_inr: R(c.old.tax.total), net_payable_inr: R(c.old.net_payable) },
+        taxes_paid_inr: R(pick.taxes_paid), refund_or_payable: pick.net_payable < 0 ? { refund_inr: R(-pick.net_payable) } : { payable_inr: R(pick.net_payable) },
+        late_fee_and_interest_estimates_inr: R(pick.late_fee_234f + pick.interest_234a + pick.interest_234b), notes: pick.notes,
+        deadlines: { due: s.deadlines!.due, belated_last_date: s.deadlines!.belated, due_date_passed: s.deadlines!.dueIsPassed, belated_window_open: !s.deadlines!.belatedIsPassed },
+        reminder: 'These are estimates to help prepare the return, not professional advice. The user files and e-verifies on the income-tax portal.' };
+    }
+    case 'tax_savings': {
+      const fy: string = a.fy ?? returnYearFor(today), s = taxSummary(db, fy, today);
+      if (!s.supported || !s.entered) return { message: s.supported ? 'No tax details entered for this year yet.' : s.message };
+      const profile = svc.getProfile(db), input = getTaxInput(db, fy), ctx = makeCtx(fy, profile, today), p = (x?: number) => Math.round((x ?? 0) * 100);
+      const patch = { d80c: input.d80c + p(a.extra_80c_inr), d80ccd1b: input.d80ccd1b + p(a.extra_nps_80ccd1b_inr), d80d_self: input.d80d_self + p(a.extra_80d_inr) };
+      const cmp = compareRegimes(input, ctx, 'auto');
+      return { regime_note: 'These deductions only reduce tax in the OLD regime.', old_regime_saving_inr: inr(whatIf(input, ctx, 'old', patch)), recommended_regime_today: cmp.recommended,
+        old_vs_new_after_change: inr(compareRegimes({ ...input, ...patch }, ctx, 'auto').saving), already_claimed_inr: { section_80c: inr(input.d80c), nps_80ccd1b: inr(input.d80ccd1b), health_80d_self: inr(input.d80d_self) } };
     }
     case 'friends': {
       const s = svc.iouSummary(db);
