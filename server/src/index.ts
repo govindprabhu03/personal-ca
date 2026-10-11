@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createApp } from './app';
 import { openDb } from './db';
+import { createLogger } from './log';
 
 const file = process.env.CA_DB ?? path.join(__dirname, '..', 'data', 'ca.db');
 if (file !== ':memory:') mkdirSync(path.dirname(file), { recursive: true });
@@ -14,4 +15,4 @@ if (host !== '127.0.0.1' && host !== 'localhost' && !token) {
   process.exit(1);
 }
 
-createApp(openDb(file), { token }).listen(port, host, () => console.log(`Personal CA API on http://${host}:${port}  (db: ${file})`));
+createApp(openDb(file), { token, log: createLogger(file === ':memory:' ? undefined : path.join(path.dirname(file), 'logs')) }).listen(port, host, () => console.log(`Personal CA API on http://${host}:${port}  (db: ${file})`));

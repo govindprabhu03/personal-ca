@@ -2,11 +2,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { hostname as osHostname, networkInterfaces } from 'node:os';
 import { z } from 'zod';
 import { DB } from './db';
 import { monthOf, todayStr } from './engine/dates';
 import { askCa, LlmClient } from './ask/agent';
+import { Logger, quietLogger } from './log';
 import * as svc from './service';
 import { AssetSource, mountWeb } from './web';
 
@@ -43,8 +45,17 @@ const allowedHosts = (): Set<string> => {
 };
 const hostOf = (value?: string) => { try { return new URL(`http://${value ?? ''}`).hostname.toLowerCase(); } catch { return ''; } };
 
-export function createApp(db: DB, opts: { token?: string; today?: () => string; llm?: LlmClient | null; web?: AssetSource | null } = {}) {
+export function createApp(db: DB, opts: { token?: string; today?: () => string; llm?: LlmClient | null; web?: AssetSource | null; log?: Logger } = {}) {
   const app = express();
+  const log = opts.log ?? quietLogger;
+  app.disable('x-powered-by');
+  app.use((q, r, n) => { // headers every response carries; failures are logged by route and status only (never bodies or tokens)
+    r.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer' });
+    if (q.path.startsWith('/api')) r.set('Cache-Control', 'no-store');
+    const t0 = Date.now(), route = q.originalUrl.split('?')[0]; // originalUrl: req.path loses its /api prefix inside app.use('/api', ...)
+    r.on('finish', () => { if (r.statusCode >= 400 && ((route.startsWith('/api') && route !== '/api/health') || r.statusCode >= 500 || r.statusCode === 421)) log.warn(`${q.method} ${route} -> ${r.statusCode} (${Date.now() - t0}ms) from ${q.socket.remoteAddress}`); });
+    n();
+  });
   const asked: number[] = []; // timestamps, for a simple "60 questions an hour" cost guard
   const today = () => opts.today?.() ?? todayStr();
   // 1. DNS-rebinding guard: a web page can make your browser send requests to "localhost" under another site's NAME. Those carry a foreign Host header.
@@ -53,8 +64,23 @@ export function createApp(db: DB, opts: { token?: string; today?: () => string; 
   app.use(cors({ origin: (origin, cb) => { if (!origin) return cb(null, true); try { cb(null, allowedHosts().has(new URL(origin).hostname.toLowerCase())); } catch { cb(null, false); } } }));
   app.use(express.json({ limit: '30mb' })); // statements: a few MB of CSV, or a base64 PDF (about a third bigger than the file)
   app.get('/api/health', (_q, r) => { r.json({ ok: true }); });
-  if (opts.token)
-    app.use('/api', (q, r, n) => (q.header('x-api-key') === opts.token ? n() : void r.status(401).json({ error: 'unauthorised' })));
+  if (opts.token) {
+    // Wrong tokens: compared in constant time, and 10 misses within a minute shut that address out for a minute (a guessing attack
+    // is hopeless against a 144-bit token anyway; this mostly stops a misconfigured device from spamming the log).
+    const want = createHash('sha256').update(opts.token).digest();
+    const misses = new Map<string, { n: number; since: number; until: number }>();
+    app.use('/api', (q, r, n) => {
+      const ip = q.socket.remoteAddress ?? '?', now = Date.now(), m = misses.get(ip);
+      if (m && m.until > now) return void r.status(429).set('Retry-After', String(Math.ceil((m.until - now) / 1000))).json({ error: 'Too many wrong access tokens. Wait a minute and try again.' });
+      const got = createHash('sha256').update(q.header('x-api-key') ?? '').digest();
+      if (timingSafeEqual(got, want)) { misses.delete(ip); return n(); }
+      const e = m && now - m.since < 60_000 ? m : { n: 0, since: now, until: 0 };
+      if (++e.n >= 10) { e.until = now + 60_000; log.warn(`locked out ${ip} for 60s after ${e.n} wrong tokens`); }
+      misses.set(ip, e);
+      if (misses.size > 500) for (const [k, v] of misses) if (v.until < now && now - v.since > 60_000) misses.delete(k);
+      r.status(401).json({ error: 'unauthorised' });
+    });
+  }
 
   // Idempotent writes. The app's offline queue replays writes after a connection drops, and a replay must never double-apply
   // (e.g. the request DID reach us but the reply was lost). A repeated Idempotency-Key is answered from the stored result.
@@ -213,7 +239,9 @@ export function createApp(db: DB, opts: { token?: string; today?: () => string; 
   app.use((err: unknown, _q: Request, res: Response, _n: NextFunction) => {
     if (err instanceof z.ZodError) return void res.status(400).json({ error: 'invalid input', details: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
     if (err instanceof svc.HttpError) return void res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}) });
-    console.error(err);
+    const status = (err as { status?: number })?.status; // body-parser's own complaints: malformed JSON (400), body too large (413)
+    if (typeof status === 'number' && status >= 400 && status < 500) return void res.status(status).json({ error: status === 413 ? 'That is too large to send in one go.' : 'The request was not understood.' });
+    log.error(`unhandled error on ${_q.method} ${_q.originalUrl.split('?')[0]}`, err);
     res.status(500).json({ error: 'server error' });
   });
   return app;
