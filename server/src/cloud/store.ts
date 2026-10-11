@@ -35,15 +35,16 @@ export function blobStore(prefix = 'personalca'): Store {
       return { data: Buffer.from(await new Response(r.stream).arrayBuffer()), version };
     },
     async save(data, expected) {
+      let r: Awaited<ReturnType<typeof put>>;
       try {
-        await put(main, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: expected !== null, ...(expected ? { ifMatch: expected } : {}) });
+        r = await put(main, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: expected !== null, ...(expected ? { ifMatch: expected } : {}) });
       } catch (e) {
         if (e instanceof BlobPreconditionFailedError || (expected === null && /already exists/i.test(String((e as Error)?.message)))) {
           throw new ConflictError(`expected version ${expected}, the store has ${await etag().catch(() => '?')}`);
         }
         throw e;
       }
-      return (await etag()) ?? '';
+      return r.etag; // (saves one round trip; the next request's head() reports the same form, or just reloads once if it ever differs)
     },
     async archive(slot, data) {
       await put(`${prefix}/backup-${slot}.bin`, data, { ...auth(), access: 'private', contentType: 'application/octet-stream', addRandomSuffix: false, allowOverwrite: true });

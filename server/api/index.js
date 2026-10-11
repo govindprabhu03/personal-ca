@@ -138001,15 +138001,16 @@ function blobStore(prefix = "personalca") {
       return { data: Buffer.from(await new Response(r2.stream).arrayBuffer()), version: version2 };
     },
     async save(data, expected) {
+      let r2;
       try {
-        await put(main2, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: expected !== null, ...expected ? { ifMatch: expected } : {} });
+        r2 = await put(main2, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: expected !== null, ...expected ? { ifMatch: expected } : {} });
       } catch (e2) {
         if (e2 instanceof BlobPreconditionFailedError || expected === null && /already exists/i.test(String(e2?.message))) {
           throw new ConflictError2(`expected version ${expected}, the store has ${await etag().catch(() => "?")}`);
         }
         throw e2;
       }
-      return await etag() ?? "";
+      return r2.etag;
     },
     async archive(slot, data) {
       await put(`${prefix}/backup-${slot}.bin`, data, { ...auth(), access: "private", contentType: "application/octet-stream", addRandomSuffix: false, allowOverwrite: true });
