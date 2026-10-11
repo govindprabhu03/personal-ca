@@ -270,3 +270,68 @@ describe('storage helpers', () => {
     expect(() => makeCipher('abcd', (l) => randomBytes(l))).toThrow();
   });
 });
+
+describe('server identity: a phone never overwrites its data from a different server', () => {
+  it('fills a NEW, empty server from the phone: nothing lost, local ids tidied, references intact, queued changes not applied twice', async () => {
+    const a = await world(); const kv = memoryKv();
+    const p1 = a.phone(kv); await p1.s.init(); await p1.s.ping(); // meets server A, remembers its identity
+    a.net.offline = true;
+    await p1.s.run('addTx', tx('Offline Chai', 2000, `${M}-08T10:00:00`));
+    await p1.s.run('split', { amount_paise: 90000, merchant_raw: 'Dinner', friends: ['Asha', 'Ravi'], paid_by: null, occurred_at: `${M}-08T20:00:00` });
+    expect(svc.listTxs(p1.db, M, TODAY).every((t) => isLocalId(t.id))).toBe(true);
+    a.close();
+
+    const b = await world(); // the same phone now meets a brand-new server (e.g. the cloud copy was wiped)
+    const p2 = b.phone(kv, phoneDb()); await p2.s.init(); await p2.s.ping();
+    const names = (rows: Array<{ merchant_raw: string }>) => rows.map((t) => t.merchant_raw).sort();
+    expect(names(b.serverTxs())).toEqual(['Dinner', 'Offline Chai']); // each exactly once
+    expect(b.serverTxs().every((t) => !isLocalId(t.id))).toBe(true);
+    const ious = b.serverDb.prepare('SELECT COUNT(*) AS n, SUM(tx_id IS NOT NULL AND tx_id NOT IN (SELECT id FROM transactions)) AS orphans FROM iou_entries').get() as unknown as { n: number; orphans: number | null };
+    expect(ious.n).toBeGreaterThan(0);
+    expect(ious.orphans ?? 0).toBe(0);
+    expect(p2.s.getSnapshot()).toMatchObject({ pending: [], rejected: [], serverChanged: false });
+    expect(names(svc.listTxs(p2.db, M, TODAY))).toEqual(['Dinner', 'Offline Chai']);
+    expect(svc.listTxs(p2.db, M, TODAY).every((t) => !isLocalId(t.id))).toBe(true); // editable like any synced row
+    b.close();
+  });
+
+  it('refuses to overwrite from a different server that already has data: nothing is sent or lost until the user chooses', async () => {
+    const a = await world(); const kv = memoryKv();
+    const p1 = a.phone(kv); await p1.s.init(); await p1.s.ping();
+    await p1.s.run('addTx', tx('Phone Only', 1000, `${M}-07T10:00:00`)); await p1.s.flush();
+    a.net.offline = true;
+    await p1.s.run('addTx', tx('Unsent', 500, `${M}-09T10:00:00`));
+    a.close();
+
+    const b = await world();
+    svc.createTx(b.serverDb, { amount_paise: 700, merchant_raw: 'Server B Row', occurred_at: `${M}-06T10:00:00` });
+    const p2 = b.phone(kv, phoneDb()); await p2.s.init(); await p2.s.ping(); await p2.s.pull();
+    const merchants = (db: DB) => svc.listTxs(db, M, TODAY).map((t) => t.merchant_raw).sort();
+    expect(p2.s.getSnapshot()).toMatchObject({ serverChanged: true });
+    expect(merchants(p2.db)).toEqual(['Phone Only', 'Unsent']);   // the phone's data is untouched
+    expect(merchants(b.serverDb)).toEqual(['Server B Row']);      // and nothing was sent to the stranger
+    expect(p2.s.getSnapshot().pending).toHaveLength(1);
+
+    await p2.s.adoptServer(); // the user explicitly takes the server's copy
+    expect(p2.s.getSnapshot()).toMatchObject({ serverChanged: false, pending: [] });
+    expect(merchants(p2.db)).toEqual(['Server B Row']);
+    b.close();
+  });
+
+  it('a server that is not empty can never be overwritten through the upload route', async () => {
+    const w = await world();
+    svc.createTx(w.serverDb, { amount_paise: 100, merchant_raw: 'Keep Me', occurred_at: `${M}-06T10:00:00` });
+    const res = await fetch(`${w.base}/api/snapshot`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(svc.exportTables(phoneDb())) });
+    expect([res.status, (await res.json()).code]).toEqual([409, 'server_not_empty']);
+    expect(w.serverTxs().map((t) => t.merchant_raw)).toEqual(['Keep Me']);
+    w.close();
+  });
+
+  it('refuses a snapshot whose column names could smuggle SQL, and leaves the data as it was', () => {
+    const db = openDb(':memory:');
+    svc.createTx(db, { amount_paise: 100, merchant_raw: 'Intact', occurred_at: `${M}-06T10:00:00` });
+    const evil = { settings: {}, transactions: [{ 'id) VALUES (1); DROP TABLE settings; --': 1 }] } as unknown as svc.Snapshot;
+    expect(() => svc.importTables(db, evil)).toThrow(/column name/);
+    expect(svc.listTxs(db, M, TODAY).map((t) => t.merchant_raw)).toEqual(['Intact']); // rolled back, nothing lost
+  });
+});

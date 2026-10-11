@@ -28,12 +28,12 @@ export function More({ bump }: ScreenProps) {
     try {
       setErr('');
       const url = normaliseUrl(srvUrl);
-      if (!url) throw new Error("Enter your PC's address, like 192.168.0.150");
+      if (!url) throw new Error("Enter the server's address, like 192.168.0.150 or https://my-app.vercel.app");
       await saveServer({ url, token: srvToken.trim() });
       getSync().setServer({ base: url, token: srvToken.trim() });
       setSrvUrl(url);
       const reached = await getSync().ping();
-      setSrvMsg(getSync().getSnapshot().authFailed ? "🔑 Reached your PC, but it didn't accept that token." : reached ? '✅ Connected. Your data is syncing.' : "❌ Couldn't reach your PC. Same Wi-Fi? Is the Personal CA program running on it?");
+      setSrvMsg(getSync().getSnapshot().authFailed ? "🔑 Reached the server, but it didn't accept that token." : reached ? '✅ Connected. Your data is syncing.' : "❌ Couldn't reach the server. On a home PC: same Wi-Fi, and is the Personal CA program running? For a cloud address: check it for typos.");
       bump();
     } catch (e: any) { setErr(e.message); }
   };
@@ -66,10 +66,10 @@ export function More({ bump }: ScreenProps) {
       <ErrorText error={err} />
       {!!msg && <View style={{ backgroundColor: C.mintSoft, borderRadius: 16, padding: 12 }}><T w="bold" color="#0A9E7B">✅ {msg}</T></View>}
 
-      <Title emoji="🔌">Connect to your PC</Title>
+      <Title emoji="🔌">Connect to your server</Title>
       <Card>
-        <Muted>Your data lives on this device and syncs with the Personal CA program on your PC. Enter its address and access token once (the PC shows both).</Muted>
-        <Field label="PC address" value={srvUrl} onChangeText={setSrvUrl} placeholder="192.168.0.150" autoCapitalize="none" keyboardType="url" />
+        <Muted>Your data lives on this device and syncs with your Personal CA server: the program on your PC, or one you have put online. Enter its address and access token once. A PC address looks like 192.168.0.150; an online one starts with https://</Muted>
+        <Field label="Server address" value={srvUrl} onChangeText={setSrvUrl} placeholder="192.168.0.150 or https://…" autoCapitalize="none" keyboardType="url" />
         <Field label="Access token" value={srvToken} onChangeText={setSrvToken} autoCapitalize="none" secureTextEntry />
         <Btn label="Save & connect" onPress={connect} />
         {!!srvMsg && <T size={13} w="semi">{srvMsg}</T>}
@@ -101,7 +101,14 @@ export function More({ bump }: ScreenProps) {
         {sy.authFailed && (
           <View style={{ backgroundColor: C.pinkSoft, borderRadius: 14, padding: 10, gap: 4 }}>
             <T size={13} w="black" color="#C21B52">🔑 The server doesn't accept this app's access token</T>
-            <T size={12} color="#C21B52">Nothing is lost: your changes are safe on this phone and will send once it's fixed. Fix it in "Connect to your PC" above: the token must match the one shown by the Personal CA program on your PC.</T>
+            <T size={12} color="#C21B52">Nothing is lost: your changes are safe on this phone and will send once it's fixed. Fix it in "Connect to your server" above: the token must match the one shown by the Personal CA program on your PC.</T>
+          </View>
+        )}
+        {sy.serverChanged && (
+          <View style={{ backgroundColor: C.pinkSoft, borderRadius: 14, padding: 10, gap: 6 }}>
+            <T size={13} w="black" color="#C21B52">🔀 This server isn't the one this phone last synced with</T>
+            <T size={12} color="#C21B52">It already has its own data, so nothing was sent and nothing on this phone was changed. If this is your server and you want its copy here, you can use it. Anything on this phone that never reached it will be dropped, so only do this if you're sure.</T>
+            <Btn kind="danger" label="Use this server's data on my phone" onPress={() => run(async () => { if (await confirmAsk("Replace this phone's data?", "This phone's data (including anything not yet sent) is replaced by the server's copy.")) { await getSync().adoptServer(); bump(); } })} style={{ paddingVertical: 8 }} />
           </View>
         )}
         {sy.pending.map((o) => <Muted key={o.id} size={12}>⏳ {o.label}</Muted>)}

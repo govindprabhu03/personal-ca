@@ -9,10 +9,10 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const stamp = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 /** `consoleFrom`: which levels also print to the console (INFO never does; callers use console.log for the friendly banner). */
-export function createLogger(dir?: string, opts: { keepDays?: number; consoleFrom?: 'warn' | 'error' | 'never' } = {}): Logger {
+export function createLogger(dir?: string, opts: { keepDays?: number; consoleFrom?: 'info' | 'warn' | 'error' | 'never' } = {}): Logger {
   const keep = opts.keepDays ?? 14;
   const from = opts.consoleFrom ?? 'warn';
-  const toConsole = (level: string) => from === 'warn' ? level !== 'INFO' : from === 'error' && level === 'ERROR';
+  const toConsole = (level: string) => from === 'info' || (from === 'warn' ? level !== 'INFO' : from === 'error' && level === 'ERROR');
   let dirOk = false;
   if (dir) { try { mkdirSync(dir, { recursive: true }); dirOk = true; prune(dir, keep); } catch { /* logging must never stop the app */ } }
   const write = (level: string, msg: string) => {

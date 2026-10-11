@@ -1,5 +1,6 @@
 // The server's database: Node's built-in node:sqlite (zero native build on Windows). The schema itself lives in shared/core/schema.ts
 // because the phone builds the very same tables.
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -38,6 +39,9 @@ export function openDb(file: string): DatabaseSync {
   if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
   if (found < SCHEMA_VERSION && file !== ':memory:') copyDb(db, `${file}.before-v${SCHEMA_VERSION}.bak`);
   initSchema(db);
+  // This database's identity: a phone remembers it, so it can tell "my server" from a new, reset or different one (and never overwrite its data from the latter).
+  db.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  db.exec(`INSERT OR IGNORE INTO meta (key, value) VALUES ('server_id', ${sqlString(randomUUID())})`);
   for (let v = found; v < SCHEMA_VERSION; v++) MIGRATIONS[v - 1](db);
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   db.exec("DELETE FROM sync_ops WHERE at < datetime('now', '-30 days')"); // a phone offline for over a month is not replaying old keys

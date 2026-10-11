@@ -89,10 +89,10 @@ function Main() {
             <T size={13} w="semi" color={C.sub}>{greeting()}</T>
             <T size={26} w="black">{cur.title}</T>
           </View>
-          {(!snap.online || snap.authFailed || snap.syncing || snap.pending.length > 0 || snap.rejected.length > 0) && (
-            <Pressable onPress={() => setTab('more')} style={{ height: 40, borderRadius: 20, paddingHorizontal: 12, marginRight: 8, justifyContent: 'center', backgroundColor: snap.authFailed || snap.rejected.length ? C.pinkSoft : !snap.online ? C.skySoft : C.sunSoft }}>
-              <Text style={{ fontSize: 13, fontFamily: F.bold, color: snap.authFailed || snap.rejected.length ? '#C21B52' : !snap.online ? '#1B6FA8' : '#8A5A00' }}>
-                {snap.authFailed ? '🔑 Token' : !snap.online ? `📴 Offline${snap.pending.length ? ` · ${snap.pending.length}` : ''}` : snap.syncing ? '🔄 Syncing' : snap.pending.length ? `⏳ ${snap.pending.length}` : `⚠️ ${snap.rejected.length}`}
+          {(!snap.online || snap.authFailed || snap.serverChanged || snap.syncing || snap.pending.length > 0 || snap.rejected.length > 0) && (
+            <Pressable onPress={() => setTab('more')} style={{ height: 40, borderRadius: 20, paddingHorizontal: 12, marginRight: 8, justifyContent: 'center', backgroundColor: snap.authFailed || snap.serverChanged || snap.rejected.length ? C.pinkSoft : !snap.online ? C.skySoft : C.sunSoft }}>
+              <Text style={{ fontSize: 13, fontFamily: F.bold, color: snap.authFailed || snap.serverChanged || snap.rejected.length ? '#C21B52' : !snap.online ? '#1B6FA8' : '#8A5A00' }}>
+                {snap.serverChanged ? '🔀 New server' : snap.authFailed ? '🔑 Token' : !snap.online ? `📴 Offline${snap.pending.length ? ` · ${snap.pending.length}` : ''}` : snap.syncing ? '🔄 Syncing' : snap.pending.length ? `⏳ ${snap.pending.length}` : `⚠️ ${snap.rejected.length}`}
               </Text>
             </Pressable>
           )}

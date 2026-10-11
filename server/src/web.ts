@@ -34,7 +34,8 @@ export function seaAssets(): AssetSource | null {
   } catch { return null; }
 }
 
-const isLoopback = (q: Request) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(q.socket.remoteAddress ?? '');
+// (a request relayed by a proxy on this same machine carries X-Forwarded-For: that is somebody else, not the person at this PC)
+const isLoopback = (q: Request) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(q.socket.remoteAddress ?? '') && !q.headers['x-forwarded-for'];
 
 /**
  * GET anything that isn't /api -> a file of the web app (unknown extension-less paths get index.html, so the app can own its screens).

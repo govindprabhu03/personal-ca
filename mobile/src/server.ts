@@ -19,11 +19,4 @@ export async function saveServer(s: ServerSettings): Promise<void> {
   if (Platform.OS === 'web') web().setItem(KEY, raw); else await SecureStore.setItemAsync(KEY, raw);
 }
 
-/** "192.168.0.150" or "192.168.0.150:8787/" -> "http://192.168.0.150:8787". People type it every way. */
-export function normaliseUrl(input: string): string {
-  let u = input.trim().replace(/\/+$/, '');
-  if (!u) return '';
-  if (!/^https?:\/\//i.test(u)) u = `http://${u}`;
-  if (!/:\d+$/.test(u.replace(/^https?:\/\//i, ''))) u += ':8787';
-  return u;
-}
+export { normaliseUrl } from '../../shared/serverUrl'; // shared with the tests: https addresses keep their own port

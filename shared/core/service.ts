@@ -4,6 +4,7 @@ import type {
   PaymentMethod, SafeToSpend, SavingsPlan, Settings, Subscription, Suggestion, Tx, WishItem, Wishlist,
 } from '../types';
 import { DB, wipe } from './schema';
+import { isLocalId, LOCAL_ID_BASE } from './localdb';
 import { categorise, UserRule } from '../categorise';
 import { addDays, addHoursStr, asOfFor, dayDiff, lastDayOf, monthOf, monthsBack, nextMonth, nowStr, hourOf, todayStr } from './dates';
 import { detectSubscriptions } from './subscriptions';
@@ -247,6 +248,7 @@ export function importTables(db: DB, d: Snapshot) {
     db.exec('DELETE FROM iou_entries; DELETE FROM bills; DELETE FROM merchant_rules; DELETE FROM transactions; DELETE FROM income; DELETE FROM goals; DELETE FROM wishlist; DELETE FROM accounts; DELETE FROM categories;');
     for (const t of TABLES) for (const row of d[t] ?? []) {
       const cols = Object.keys(row);
+      if (!cols.every((c) => /^[a-z][a-z0-9_]*$/.test(c))) throw new HttpError(400, `Rejected a column name in ${t}.`); // names go into the SQL text: never trust them
       run(db, `INSERT INTO ${t} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`, ...cols.map((c) => row[c] as string | number | null));
     }
     updateSettings(db, d.settings);
@@ -254,6 +256,35 @@ export function importTables(db: DB, d: Snapshot) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 export const eraseAll = (db: DB) => wipe(db);
+
+/** True when nobody has entered anything yet (only the seeded defaults). A phone may fill an empty server with its data; it may never overwrite a non-empty one. */
+export function isEmpty(db: DB): boolean {
+  return !(['transactions', 'income', 'bills', 'goals', 'wishlist', 'iou_entries'] as const).some((t) => get<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${t}`)!.n > 0);
+}
+
+/**
+ * A phone's snapshot holds rows it created itself under huge "local" ids (see localdb.ts). Before a server adopts it, give those rows
+ * ordinary ids (continuing after the table's normal ones) and rewrite every reference to them, so they are editable like any synced row.
+ */
+const REFERENCES: Record<string, Record<string, string>> = {
+  income: { account_id: 'accounts' }, transactions: { account_id: 'accounts', category_id: 'categories' },
+  merchant_rules: { category_id: 'categories' }, iou_entries: { account_id: 'accounts', tx_id: 'transactions' },
+};
+export function renumberLocalIds(d: Snapshot): Snapshot {
+  const out: Snapshot = { ...d }, maps: Record<string, Map<number, number>> = {};
+  for (const t of TABLES) { // TABLES lists parents before children
+    const rows = (d[t] ?? []) as Array<Record<string, number | null>>;
+    let next = rows.reduce((m, r) => (typeof r.id === 'number' && r.id < LOCAL_ID_BASE ? Math.max(m, r.id) : m), 0) + 1;
+    const map = (maps[t] = new Map<number, number>());
+    out[t] = rows.map((r) => {
+      const row = { ...r };
+      if (isLocalId(r.id)) { map.set(r.id as number, next); row.id = next++; }
+      for (const [col, parent] of Object.entries(REFERENCES[t] ?? {})) if (isLocalId(row[col])) row[col] = maps[parent].get(row[col] as number) ?? null;
+      return row;
+    });
+  }
+  return out;
+}
 
 // ---------- Phase 3: bill & EMI reminders ----------
 type BillRow = Omit<Bill, 'next_due' | 'days_until' | 'status' | 'paid_this_month'> & { active: number };

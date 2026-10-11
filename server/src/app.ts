@@ -41,25 +41,28 @@ const lanAddresses = () => Object.values(networkInterfaces()).flatMap((l) => l ?
 /** The names this server may be reached by: this PC, its CURRENT network addresses, and anything in CA_ALLOWED_HOSTS. */
 const allowedHosts = (): Set<string> => {
   const h = osHostname().toLowerCase();
-  return new Set(['localhost', '127.0.0.1', '[::1]', h, `${h}.local`, ...lanAddresses(), ...(process.env.CA_ALLOWED_HOSTS ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)]);
+  return new Set(['localhost', '127.0.0.1', '[::1]', h, `${h}.local`, ...lanAddresses(), ...[process.env.RENDER_EXTERNAL_HOSTNAME ?? '', process.env.VERCEL_PROJECT_PRODUCTION_URL ?? '', process.env.VERCEL_URL ?? '', process.env.VERCEL_BRANCH_URL ?? '', ...(process.env.CA_ALLOWED_HOSTS ?? '').split(',')].map((x) => x.trim().toLowerCase()).filter(Boolean)]);
 };
 const hostOf = (value?: string) => { try { return new URL(`http://${value ?? ''}`).hostname.toLowerCase(); } catch { return ''; } };
 
-export function createApp(db: DB, opts: { token?: string; today?: () => string; llm?: LlmClient | null; web?: AssetSource | null; log?: Logger } = {}) {
+export function createApp(db: DB, opts: { token?: string; today?: () => string; llm?: LlmClient | null; web?: AssetSource | null; log?: Logger; trustProxy?: number; publicHealth?: boolean } = {}) {
   const app = express();
   const log = opts.log ?? quietLogger;
   app.disable('x-powered-by');
+  // Behind a hosting platform's proxy every request arrives from the proxy's address; trust its X-Forwarded-For (n hops) so lockouts and logs see the real client.
+  if (opts.trustProxy) app.set('trust proxy', opts.trustProxy);
   app.use((q, r, n) => { // headers every response carries; failures are logged by route and status only (never bodies or tokens)
     r.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer' });
     if (q.path.startsWith('/api')) r.set('Cache-Control', 'no-store');
     const t0 = Date.now(), route = q.originalUrl.split('?')[0]; // originalUrl: req.path loses its /api prefix inside app.use('/api', ...)
-    r.on('finish', () => { if (r.statusCode >= 400 && ((route.startsWith('/api') && route !== '/api/health') || r.statusCode >= 500 || r.statusCode === 421)) log.warn(`${q.method} ${route} -> ${r.statusCode} (${Date.now() - t0}ms) from ${q.socket.remoteAddress}`); });
+    r.on('finish', () => { if (r.statusCode >= 400 && ((route.startsWith('/api') && route !== '/api/health') || r.statusCode >= 500 || r.statusCode === 421)) log.warn(`${q.method} ${route} -> ${r.statusCode} (${Date.now() - t0}ms) from ${q.ip}`); });
     n();
   });
   const asked: number[] = []; // timestamps, for a simple "60 questions an hour" cost guard
   const today = () => opts.today?.() ?? todayStr();
   // 1. DNS-rebinding guard: a web page can make your browser send requests to "localhost" under another site's NAME. Those carry a foreign Host header.
-  app.use((q, r, n) => (allowedHosts().has(hostOf(q.headers.host)) ? n() : void r.status(421).type('text').send('Unrecognised host')));
+  // (a hosting platform's health checker may send its own Host header, so a cloud deployment can leave /api/health open: it reveals nothing)
+  app.use((q, r, n) => (allowedHosts().has(hostOf(q.headers.host)) || (opts.publicHealth && q.path === '/api/health') ? n() : void r.status(421).type('text').send('Unrecognised host')));
   // 2. CORS: only pages served from this PC / your own network may read answers in a browser (phone apps send no Origin and are unaffected).
   app.use(cors({ origin: (origin, cb) => { if (!origin) return cb(null, true); try { cb(null, allowedHosts().has(new URL(origin).hostname.toLowerCase())); } catch { cb(null, false); } } }));
   app.use(express.json({ limit: '30mb' })); // statements: a few MB of CSV, or a base64 PDF (about a third bigger than the file)
@@ -70,7 +73,7 @@ export function createApp(db: DB, opts: { token?: string; today?: () => string; 
     const want = createHash('sha256').update(opts.token).digest();
     const misses = new Map<string, { n: number; since: number; until: number }>();
     app.use('/api', (q, r, n) => {
-      const ip = q.socket.remoteAddress ?? '?', now = Date.now(), m = misses.get(ip);
+      const ip = q.ip ?? '?', now = Date.now(), m = misses.get(ip);
       if (m && m.until > now) return void r.status(429).set('Retry-After', String(Math.ceil((m.until - now) / 1000))).json({ error: 'Too many wrong access tokens. Wait a minute and try again.' });
       const got = createHash('sha256').update(q.header('x-api-key') ?? '').digest();
       if (timingSafeEqual(got, want)) { misses.delete(ip); return n(); }
@@ -107,6 +110,15 @@ export function createApp(db: DB, opts: { token?: string; today?: () => string; 
   app.get('/api/bootstrap', (_q, r) => { r.json(svc.bootstrap(db, today())); });
   // The whole database as plain data: how the phone refreshes its on-device copy after it has sent its own changes.
   app.get('/api/snapshot', (_q, r) => { r.json(svc.exportTables(db)); });
+  // Which database this is, and whether anyone has entered data into it yet.
+  app.get('/api/identity', (_q, r) => { r.json({ id: (db.prepare("SELECT value FROM meta WHERE key = 'server_id'").get() as unknown as { value: string }).value, empty: svc.isEmpty(db) }); });
+  // A phone fills an EMPTY server with what it holds (a new or reset server). It can never overwrite a server that has data.
+  app.put('/api/snapshot', (q, r) => {
+    const body = z.object({ settings: z.record(z.string(), z.unknown()) }).catchall(z.unknown()).parse(q.body);
+    if (!svc.isEmpty(db)) throw new svc.HttpError(409, 'This server already has data, so nothing was overwritten.', 'server_not_empty');
+    svc.importTables(db, svc.renumberLocalIds(body as unknown as svc.Snapshot));
+    r.json({ ok: true });
+  });
   // What a phone needs to connect (only reachable with the token already, so this reveals nothing new).
   app.get('/api/pairing', (q, r) => { r.json({ urls: lanAddresses().map((a) => `http://${a}:${q.socket.localPort}`), token: opts.token ?? null }); });
   app.get('/api/suggest', (q, r) => {

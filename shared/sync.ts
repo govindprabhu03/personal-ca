@@ -13,14 +13,15 @@
 // Plain TypeScript with the database, storage and network injected, so this exact code is tested against the real server.
 import { COMMANDS, CommandName } from './commands';
 import { DB, wipe } from './core/schema';
-import { exportTables, importTables } from './core/service';
+import { exportTables, importTables, isEmpty } from './core/service';
 import type { KV } from './kv';
 
 export type { KV } from './kv';
 export interface Op { id: string; cmd: CommandName; args: unknown; at: string; label: string }
 export interface Rejected { op: Op; error: string }
-/** authFailed: the server is reachable but refuses this app's access token. Nothing is dropped; changes wait until the token is fixed. */
-export interface SyncSnapshot { online: boolean; syncing: boolean; pending: Op[]; rejected: Rejected[]; lastSync: string | null; dataVersion: number; authFailed: boolean }
+/** authFailed: the server is reachable but refuses this app's access token. Nothing is dropped; changes wait until the token is fixed.
+ *  serverChanged: the server is a different database from the one this phone synced with, and it isn't empty: nothing is sent or overwritten until the user decides. */
+export interface SyncSnapshot { online: boolean; syncing: boolean; pending: Op[]; rejected: Rejected[]; lastSync: string | null; dataVersion: number; authFailed: boolean; serverChanged: boolean }
 
 export class ApiError extends Error { constructor(public status: number, message: string, public code?: string) { super(message); } }
 export class OfflineError extends Error { constructor(message = "You're offline. This one needs a connection.") { super(message); } }
@@ -33,13 +34,14 @@ export interface SyncConfig { base: string; token?: string; kv: KV; fetch: Fetch
 export function createSync(cfg: SyncConfig) {
   const db = cfg.db, timeoutMs = cfg.timeoutMs ?? 8000;
   let base = cfg.base, token = cfg.token; // changeable at runtime: an installed APK learns its server address from the user
-  let online = true, syncing = false, lastSync: string | null = null, dataVersion = 0, needPull = true, authFailed = false;
+  let online = true, syncing = false, lastSync: string | null = null, dataVersion = 0, needPull = true, authFailed = false, serverChanged = false;
+  let serverId: string | null = null, verified: { base: string; at: number } | null = null; // which database we last synced with, and when we last confirmed it
   let pending: SyncSnapshot['pending'] = [], rejected: Rejected[] = [];
-  let snap: SyncSnapshot = { online, syncing, pending, rejected, lastSync, dataVersion, authFailed };
+  let snap: SyncSnapshot = { online, syncing, pending, rejected, lastSync, dataVersion, authFailed, serverChanged };
   const subs = new Set<() => void>();
   let flushing: Promise<void> | null = null;
 
-  const emit = () => { snap = { online, syncing, pending: [...pending], rejected: [...rejected], lastSync, dataVersion, authFailed }; subs.forEach((f) => f()); };
+  const emit = () => { snap = { online, syncing, pending: [...pending], rejected: [...rejected], lastSync, dataVersion, authFailed, serverChanged }; subs.forEach((f) => f()); };
   const setOnline = (v: boolean) => { if (v !== online) { online = v; emit(); } };
   const setAuth = (v: boolean) => { if (v !== authFailed) { authFailed = v; emit(); } };
   /** 401/403 = "I can't tell who you are": a configuration problem, never a verdict on the change itself. */
@@ -48,7 +50,7 @@ export function createSync(cfg: SyncConfig) {
    *  doesn't recognise (421, e.g. a typo in the PC address). The change stays queued and is retried. */
   const retryLater = (status: number) => status >= 500 || status === 429 || status === 408 || status === 421;
   /** The database copy and the outbox are saved together in ONE value, so after a crash they always agree. */
-  const persist = () => cfg.kv.set('state', JSON.stringify({ tables: exportTables(db), pending, rejected, lastSync }));
+  const persist = () => cfg.kv.set('state', JSON.stringify({ tables: exportTables(db), pending, rejected, lastSync, serverId }));
 
   // Local writes and refreshes take turns, so a refresh can never land in the middle of a write.
   let chain: Promise<unknown> = Promise.resolve();
@@ -107,6 +109,42 @@ export function createSync(cfg: SyncConfig) {
     return data;
   }
 
+  /**
+   * Before sending or refreshing, make sure this is still the SAME database the phone synced with. A new, reset or different server must never
+   * silently replace what is on the phone (or receive half of it): an EMPTY server is filled from the phone; a non-empty stranger blocks and asks.
+   * An older server without /identity is trusted as before.
+   */
+  async function checkServer(): Promise<'ok' | 'blocked' | 'down'> {
+    if (verified && verified.base === base && Date.now() - verified.at < 10_000) return 'ok';
+    let r;
+    try { r = await net('GET', '/identity'); } catch { setOnline(false); return 'down'; }
+    setOnline(true);
+    if (isAuth(r.status)) { setAuth(true); return 'down'; }
+    if (r.status === 404) { verified = { base, at: Date.now() }; return 'ok'; }
+    if (!r.ok) return 'down';
+    const { id, empty } = JSON.parse(r.text) as { id: string; empty: boolean };
+    const trust = () => { serverId = id; serverChanged = false; verified = { base, at: Date.now() }; };
+    if (serverId === id) { trust(); emit(); return 'ok'; }
+    if (empty && !isEmpty(db)) { // a new/reset server and this phone holds the data: hand it over (queued changes are already part of it)
+      const up = await net('PUT', '/snapshot', exportTables(db)).catch(() => null);
+      if (!up) { setOnline(false); return 'down'; }
+      if (up.status === 409) { serverChanged = true; emit(); return 'blocked'; }
+      if (!up.ok) return 'down';
+      trust(); pending = []; needPull = true; await persist(); emit(); return 'ok';
+    }
+    if (isEmpty(db) || (serverId === null && lastSync !== null)) { trust(); await persist(); emit(); return 'ok'; } // nothing to lose, or an older install that already synced
+    serverChanged = true; emit(); return 'blocked';
+  }
+  /** The user chose "use the server's data on this phone": forget this phone's unsent changes and take the server's copy. */
+  async function adoptServer(): Promise<void> {
+    let r;
+    try { r = await net('GET', '/identity'); } catch { setOnline(false); throw new OfflineError(); }
+    if (!r.ok) throw fail(r);
+    serverId = (JSON.parse(r.text) as { id: string }).id; serverChanged = false; pending = []; needPull = true; verified = { base, at: Date.now() };
+    await persist(); emit();
+    await pull();
+  }
+
   /** Send the outbox in order. Stops (to retry later) on network trouble or a 5xx; a 4xx moves that one change to `rejected`. */
   function flush(): Promise<void> {
     if (flushing) return flushing;
@@ -114,6 +152,7 @@ export function createSync(cfg: SyncConfig) {
     flushing = (async () => {
       syncing = true; emit();
       try {
+        if ((await checkServer()) !== 'ok') return;
         while (pending.length) {
           const op = pending[0], h = (COMMANDS[op.cmd] as { http: (a: unknown) => { method: string; path: string; body?: unknown } }).http(op.args);
           let r;
@@ -138,6 +177,7 @@ export function createSync(cfg: SyncConfig) {
   function pull(): Promise<boolean> {
     return serial(async () => {
       if (pending.length) return false;
+      if ((await checkServer()) !== 'ok') return false;
       let r;
       try { r = await net('GET', '/snapshot'); } catch { setOnline(false); return false; }
       setOnline(true);
@@ -168,7 +208,7 @@ export function createSync(cfg: SyncConfig) {
   async function init() {
     try {
       const s = JSON.parse((await cfg.kv.get('state')) ?? 'null');
-      if (s) { if (s.tables) importTables(db, s.tables); pending = s.pending ?? []; rejected = s.rejected ?? []; lastSync = s.lastSync ?? null; }
+      if (s) { if (s.tables) importTables(db, s.tables); pending = s.pending ?? []; rejected = s.rejected ?? []; lastSync = s.lastSync ?? null; serverId = s.serverId ?? null; }
     } catch { /* unreadable local state: start from the freshly seeded database and let the server refill it */ }
     needPull = true; dataVersion++;
     emit();
@@ -177,7 +217,7 @@ export function createSync(cfg: SyncConfig) {
   /** Forget everything on the phone and start from a clean seeded database. */
   async function clearAll() {
     wipe(db);
-    pending = []; rejected = []; lastSync = null; needPull = true; dataVersion++;
+    pending = []; rejected = []; lastSync = null; serverId = null; serverChanged = false; verified = null; needPull = true; dataVersion++;
     await cfg.kv.del('state');
     emit();
   }
@@ -186,13 +226,13 @@ export function createSync(cfg: SyncConfig) {
   /** Point the app at a (new) server. Anything queued waits for it; the next ping refreshes from it. */
   function setServer(s: { base: string; token?: string }) {
     base = s.base; token = s.token || undefined;
-    authFailed = false; needPull = true;
+    authFailed = false; serverChanged = false; verified = null; needPull = true;
     emit();
   }
   const getServer = () => ({ base, token });
 
   return {
-    db, run, remote, flush, pull, ping, init, clearAll, dismissRejected, requestPull, setServer, getServer,
+    db, run, remote, flush, pull, ping, init, clearAll, dismissRejected, requestPull, setServer, getServer, adoptServer,
     getSnapshot: () => snap,
     subscribe: (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; },
   };

@@ -12,10 +12,12 @@
     "phone": "tsx scripts/phone.ts",
     "build:exe": "tsx scripts/build-exe.ts",
     "scan": "tsx scripts/scan.ts",
-    "verify": "tsc --noEmit && tsc --noEmit -p ../mobile/tsconfig.json && vitest run && tsx scripts/scan.ts"
+    "verify": "tsc --noEmit && tsc --noEmit -p ../mobile/tsconfig.json && vitest run && tsx scripts/scan.ts",
+    "build:vercel": "tsx scripts/build-vercel.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "@vercel/blob": "^2.8.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "unpdf": "^1.8.1",
@@ -32,5 +34,8 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
