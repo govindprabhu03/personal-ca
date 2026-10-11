@@ -1,6 +1,6 @@
 // The entry point on Vercel: one serverless function that serves the whole API (see cloud/handler.ts for how the database is kept).
-// Needs three settings on the Vercel project: CA_API_TOKEN (what the phone sends), CA_DATA_KEY (encrypts the database at rest) and a Blob store
-// connected to the project (adds BLOB_READ_WRITE_TOKEN). ANTHROPIC_API_KEY is optional (Ask your CA).
+// Needs on the Vercel project: CA_API_TOKEN (what the phone sends), CA_DATA_KEY (encrypts the database at rest) and a private Blob store, reached
+// either through BLOB_READ_WRITE_TOKEN (store connected to the project) or BLOB_STORE_ID (the SDK then uses the project's built-in OIDC identity). ANTHROPIC_API_KEY is optional (Ask your CA).
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createCloudHandler } from './cloud/handler';
 import { blobStore } from './cloud/store';
@@ -13,7 +13,7 @@ function build(): Handler {
   const need = (k: string) => { const v = process.env[k]; if (!v) throw new Error(`${k} is not set on this deployment`); return v; };
   if (need('CA_DATA_KEY').length < 24) throw new Error('CA_DATA_KEY is too short (use at least 24 random characters)');
   if (need('CA_API_TOKEN').length < 24) throw new Error('CA_API_TOKEN is too short (use at least 24 random characters)');
-  need('BLOB_READ_WRITE_TOKEN');
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) throw new Error('no Blob store: connect one to the project (BLOB_READ_WRITE_TOKEN) or set BLOB_STORE_ID');
   return createCloudHandler({ store: blobStore(), dataKey: need('CA_DATA_KEY'), token: need('CA_API_TOKEN'), log: createLogger(undefined, { consoleFrom: 'info' }), trustProxy: 1 });
 }
 

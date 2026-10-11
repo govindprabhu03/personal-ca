@@ -138113,7 +138113,7 @@ function build() {
   };
   if (need("CA_DATA_KEY").length < 24) throw new Error("CA_DATA_KEY is too short (use at least 24 random characters)");
   if (need("CA_API_TOKEN").length < 24) throw new Error("CA_API_TOKEN is too short (use at least 24 random characters)");
-  need("BLOB_READ_WRITE_TOKEN");
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) throw new Error("no Blob store: connect one to the project (BLOB_READ_WRITE_TOKEN) or set BLOB_STORE_ID");
   return createCloudHandler({ store: blobStore(), dataKey: need("CA_DATA_KEY"), token: need("CA_API_TOKEN"), log: createLogger(void 0, { consoleFrom: "info" }), trustProxy: 1 });
 }
 async function main(req, res) {
